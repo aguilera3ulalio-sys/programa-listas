@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Database (local data — should not be in version control)
+*.db
+*.db-wal
+*.db-shm
+listas.db*
+
+# Backups
+*.bak-*
+*.bak
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment / secrets
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
