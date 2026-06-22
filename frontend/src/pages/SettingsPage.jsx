@@ -148,7 +148,7 @@ export default function SettingsPage() {
           </Section>
 
           <p style={{ fontSize: 11, color: '#aaa', textAlign: 'center', marginTop: 8 }}>
-            Programa de Listas · Facultad de Informática · UAQ
+            UAQ Docentes · Facultad de Informática
           </p>
         </div>
       </div>

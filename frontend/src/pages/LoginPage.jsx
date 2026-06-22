@@ -36,7 +36,7 @@ export default function LoginPage(){
     <div style={{display:'flex',minHeight:'100vh'}}>
       <div style={{width:'44%',background:'#1a1a26',display:'flex',flexDirection:'column',justifyContent:'center',padding:'52px 44px'}}>
         <img src={logoUrl} alt="UAQ FIF" style={{width:80,height:80,objectFit:'contain',background:'#fff',padding:6,borderRadius:10,marginBottom:28}}/>
-        <div style={{fontSize:32,fontWeight:700,color:'#fff',lineHeight:1.2,marginBottom:12}}>Programa<br/>de Listas</div>
+        <div style={{fontSize:32,fontWeight:700,color:'#fff',lineHeight:1.2,marginBottom:12}}>UAQ<br/>Docentes</div>
         <div style={{fontSize:13,color:'#8888aa',lineHeight:1.7}}>Sistema de gestión académica<br/>para docentes</div>
         <div style={{marginTop:40,fontSize:11,color:'#44445a'}}>Facultad de Informática · UAQ</div>
       </div>

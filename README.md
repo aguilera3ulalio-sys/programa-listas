@@ -1,4 +1,4 @@
-# Programa de Listas
+# UAQ Docentes
 
 Sistema de gestión académica para docentes de la **Facultad de Informática de la UAQ**.
 Permite administrar clases, alumnos, asistencias, evidencias (calificaciones),
