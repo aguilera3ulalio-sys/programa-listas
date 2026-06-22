@@ -54,4 +54,18 @@ if(!db.prepare("SELECT id FROM users WHERE employee_number='12345'").get())
     for(const u of need){const code=genRecoveryCode();upd.run(code,u.id);console.log(`   • Clave ${u.employee_number} (${u.name}): ${code}`)}
   }
 }
+// Migration: hash any plain-text NIPs already stored (security gate before hosting).
+// bcrypt hashes start with "$2"; rows already hashed are skipped, so this is idempotent.
+{
+  const bcrypt=require('bcryptjs')
+  const rows=db.prepare("SELECT id,nip FROM users").all()
+  const upd=db.prepare("UPDATE users SET nip=? WHERE id=?")
+  let migrated=0
+  for(const r of rows){
+    if(typeof r.nip==='string'&&r.nip.startsWith('$2'))continue // already hashed
+    upd.run(bcrypt.hashSync(String(r.nip),10),r.id)
+    migrated++
+  }
+  if(migrated>0)console.log(`🔒 ${migrated} NIP(s) cifrado(s) con bcrypt.`)
+}
 module.exports=db
