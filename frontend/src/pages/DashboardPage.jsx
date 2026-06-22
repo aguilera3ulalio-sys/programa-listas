@@ -42,7 +42,81 @@ function DeleteModal({cls,onClose,onDeleted}){
   </div></div>)
 }
 const COLORS=[{value:'#c0185a',light:'#ffe4ef',text:'#9a1039'},{value:'#7c3aed',light:'#ede9fe',text:'#5b21b6'},{value:'#1565c0',light:'#dbeafe',text:'#1e3a8a'},{value:'#2196f3',light:'#e3f2fd',text:'#1565c0'},{value:'#166534',light:'#dcfce7',text:'#14532d'},{value:'#212121',light:'#f5f5f5',text:'#111'}]
-function ClassCard({cls,onDelete,onClick}){
+function EditModal({cls,onClose,onUpdated}){
+  const[color,setColor]=useState(cls.color||'#c0185a')
+  const[f1,setF1]=useState(cls.highlight_field1||'')
+  const[f2,setF2]=useState(cls.highlight_field2||'')
+  const[f3,setF3]=useState(cls.highlight_field3||'')
+  const[loading,setLoading]=useState(false);const[error,setError]=useState('')
+  const details=cls.details||[]
+  const col=COLORS.find(c=>c.value===color)||COLORS[0]
+  const chosen=[f1,f2,f3].filter(Boolean)
+  const suggestions=details.filter(d=>!chosen.includes(d))
+  const applySuggestion=(d)=>{
+    if(!f1)setF1(d)
+    else if(!f2)setF2(d)
+    else if(!f3)setF3(d)
+    else setF3(d) // all full → replace the third
+  }
+  const submit=async e=>{
+    e.preventDefault();setLoading(true)
+    try{
+      const u=await api.updateClass(cls.id,{
+        color,
+        highlight_field1:f1.trim()||null,
+        highlight_field2:f2.trim()||null,
+        highlight_field3:f3.trim()||null,
+      })
+      onUpdated(u);onClose()
+    }catch(err){setError(err.message)}finally{setLoading(false)}
+  }
+  return(<div className="modal-overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
+    <h2 className="modal-title">{cls.name}</h2>
+    {error&&<div className="alert alert-error">{error}</div>}
+    <form onSubmit={submit}>
+      <div className="form-group">
+        <label className="form-label">Datos destacados <span style={{fontWeight:400,textTransform:'none'}}>(hasta 3, escribe lo que quieras)</span></label>
+        <input className="form-input" style={{marginBottom:8}} placeholder="Destacado 1 (ej. Grupo 34)" value={f1} onChange={e=>setF1(e.target.value)} maxLength={40}/>
+        <input className="form-input" style={{marginBottom:8}} placeholder="Destacado 2 (opcional)" value={f2} onChange={e=>setF2(e.target.value)} maxLength={40}/>
+        <input className="form-input" placeholder="Destacado 3 (opcional)" value={f3} onChange={e=>setF3(e.target.value)} maxLength={40}/>
+        {suggestions.length>0&&<div style={{marginTop:10}}>
+          <div style={{fontSize:11,color:'#aaa',marginBottom:5}}>Sugerencias de esta clase (toca para usar):</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+            {suggestions.map((d,i)=><button key={i} type="button" className="student-tag" style={{borderColor:'#e0e0e8'}} onClick={()=>applySuggestion(d)}>{d}</button>)}
+          </div>
+        </div>}
+      </div>
+      <div className="form-group">
+        <label className="form-label">Color de la tarjeta</label>
+        <div style={{display:'flex',gap:8}}>
+          {COLORS.map(c=>(
+            <button key={c.value} type="button" onClick={()=>setColor(c.value)}
+              style={{width:28,height:28,borderRadius:'50%',background:c.value,border:`3px solid ${color===c.value?'#1a1a26':'transparent'}`,cursor:'pointer'}}/>
+          ))}
+        </div>
+      </div>
+      <div className="form-group">
+        <label className="form-label">Vista previa</label>
+        <div className="card" style={{maxWidth:200}}>
+          <div className="card-strip" style={{background:color}}/>
+          <div className="card-body">
+            <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>{cls.name}</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+              {chosen.length===0
+                ?<span style={{fontSize:11,color:'#bbb'}}>Sin datos destacados</span>
+                :chosen.map((h,i)=><span key={i} className="badge" style={{background:col.light,color:col.text}}>{h}</span>)}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="modal-actions">
+        <button type="button" className="btn" onClick={onClose}>Cancelar</button>
+        <button type="submit" className="btn btn-primary" disabled={loading}>{loading?'Guardando...':'Guardar'}</button>
+      </div>
+    </form>
+  </div></div>)
+}
+function ClassCard({cls,onDelete,onEdit,onClick}){
   const col=COLORS.find(c=>c.value===cls.color)||COLORS[0]
   return(<div className="card" style={{cursor:'pointer'}}>
     <div className="card-strip" style={{background:cls.color||col.value}}/>
@@ -50,18 +124,18 @@ function ClassCard({cls,onDelete,onClick}){
       <div style={{fontSize:14,fontWeight:600,color:'#1a1a26',marginBottom:8}}>{cls.name}</div>
       {(cls.details||[]).slice(0,4).map((d,i)=><div key={i} style={{fontSize:11,color:'#888',marginBottom:2}}>{d}</div>)}
       <div style={{marginTop:10,display:'flex',flexWrap:'wrap',gap:5}}>
-        {[cls.highlight_field1,cls.highlight_field2].filter(Boolean).map((h,i)=><span key={i} className="badge" style={{background:col.light,color:col.text}}>{h}</span>)}
+        {[cls.highlight_field1,cls.highlight_field2,cls.highlight_field3].filter(Boolean).map((h,i)=><span key={i} className="badge" style={{background:col.light,color:col.text}}>{h}</span>)}
       </div>
     </div>
     <div style={{display:'flex',gap:6,justifyContent:'flex-end',padding:'8px 14px',borderTop:'1px solid #f0f0f4'}}>
-      <button className="btn-icon" onClick={e=>e.stopPropagation()}><EditIcon/></button>
+      <button className="btn-icon" onClick={e=>{e.stopPropagation();onEdit(cls)}}><EditIcon/></button>
       <button className="btn-icon danger" onClick={e=>{e.stopPropagation();onDelete(cls)}}><TrashIcon/></button>
     </div>
   </div>)
 }
 export default function DashboardPage(){
   const{user}=useAuth();const navigate=useNavigate()
-  const[classes,setClasses]=useState([]);const[loading,setLoading]=useState(true);const[showAdd,setShowAdd]=useState(false);const[toDel,setToDel]=useState(null)
+  const[classes,setClasses]=useState([]);const[loading,setLoading]=useState(true);const[showAdd,setShowAdd]=useState(false);const[toDel,setToDel]=useState(null);const[toEdit,setToEdit]=useState(null)
   useEffect(()=>{api.getClasses(user.id).then(setClasses).catch(console.error).finally(()=>setLoading(false))},[user.id])
   return(<div className="app-shell"><Sidebar/>
     <div className="main-content">
@@ -69,11 +143,12 @@ export default function DashboardPage(){
       <div className="content">
         {loading?<div className="loading"><div className="spinner"/>Cargando...</div>
         :classes.length===0?<div className="empty-state"><div className="empty-icon">📚</div><h3>No tienes clases todavía</h3><p>Crea tu primera clase para comenzar.</p><button className="btn btn-primary" onClick={()=>setShowAdd(true)}><PlusIcon/>Añadir clase</button></div>
-        :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:14}}>{classes.map(c=><ClassCard key={c.id} cls={c} onDelete={setToDel} onClick={()=>navigate(`/clase/${c.id}`)}/>)}</div>}
+        :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:14}}>{classes.map(c=><ClassCard key={c.id} cls={c} onDelete={setToDel} onEdit={setToEdit} onClick={()=>navigate(`/clase/${c.id}`)}/>)}</div>}
       </div>
       {classes.length>0&&<div className="bottom-bar" style={{justifyContent:'center'}}><button className="btn btn-primary" onClick={()=>setShowAdd(true)}><PlusIcon/>Añadir clase</button></div>}
     </div>
     {showAdd&&<AddModal onClose={()=>setShowAdd(false)} onCreated={c=>setClasses(p=>[...p,c])}/>}
     {toDel&&<DeleteModal cls={toDel} onClose={()=>setToDel(null)} onDeleted={id=>setClasses(p=>p.filter(c=>c.id!==id))}/>}
+    {toEdit&&<EditModal cls={toEdit} onClose={()=>setToEdit(null)} onUpdated={u=>setClasses(p=>p.map(c=>c.id===u.id?u:c))}/>}
   </div>)
 }

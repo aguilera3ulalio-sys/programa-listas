@@ -3,7 +3,7 @@ const db=new Database(path.join(__dirname,'listas.db'))
 db.pragma('journal_mode = WAL');db.pragma('foreign_keys = ON')
 db.exec(`
 CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_number TEXT UNIQUE NOT NULL,nip TEXT NOT NULL,name TEXT NOT NULL,theme TEXT DEFAULT 'pink',created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS classes(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,name TEXT NOT NULL,color TEXT DEFAULT '#c0185a',highlight_field1 TEXT,highlight_field2 TEXT,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id)REFERENCES users(id)ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS classes(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,name TEXT NOT NULL,color TEXT DEFAULT '#c0185a',highlight_field1 TEXT,highlight_field2 TEXT,highlight_field3 TEXT,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id)REFERENCES users(id)ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS class_details(id INTEGER PRIMARY KEY AUTOINCREMENT,class_id INTEGER NOT NULL,label TEXT NOT NULL,value TEXT NOT NULL,FOREIGN KEY(class_id)REFERENCES classes(id)ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS students(id INTEGER PRIMARY KEY AUTOINCREMENT,class_id INTEGER NOT NULL,full_name TEXT NOT NULL,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(class_id)REFERENCES classes(id)ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS evaluation_models(id INTEGER PRIMARY KEY AUTOINCREMENT,class_id INTEGER NOT NULL,name TEXT NOT NULL,FOREIGN KEY(class_id)REFERENCES classes(id)ON DELETE CASCADE);
@@ -31,6 +31,12 @@ CREATE TABLE IF NOT EXISTS calendar_events(id INTEGER PRIMARY KEY AUTOINCREMENT,
     `)
     db.pragma('foreign_keys = ON')
   }
+}
+// Migration: add highlight_field3 column to classes (third highlighted badge on cards).
+// CREATE TABLE IF NOT EXISTS won't alter an existing table, so ALTER here (guarded, runs once).
+{
+  const ccols=db.prepare("PRAGMA table_info(classes)").all().map(c=>c.name)
+  if(!ccols.includes('highlight_field3'))db.exec("ALTER TABLE classes ADD COLUMN highlight_field3 TEXT")
 }
 if(!db.prepare("SELECT id FROM users WHERE employee_number='12345'").get())
   db.prepare("INSERT INTO users(employee_number,nip,name)VALUES(?,?,?)").run('12345','0000','Francisco Paulín')
