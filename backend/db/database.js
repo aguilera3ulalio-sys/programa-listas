@@ -1,71 +1,120 @@
-const Database=require('better-sqlite3'),path=require('path')
-const db=new Database(path.join(__dirname,'listas.db'))
-db.pragma('journal_mode = WAL');db.pragma('foreign_keys = ON')
-db.exec(`
-CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,employee_number TEXT UNIQUE NOT NULL,nip TEXT NOT NULL,name TEXT NOT NULL,theme TEXT DEFAULT 'pink',created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS classes(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,name TEXT NOT NULL,color TEXT DEFAULT '#c0185a',highlight_field1 TEXT,highlight_field2 TEXT,highlight_field3 TEXT,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id)REFERENCES users(id)ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS class_details(id INTEGER PRIMARY KEY AUTOINCREMENT,class_id INTEGER NOT NULL,label TEXT NOT NULL,value TEXT NOT NULL,FOREIGN KEY(class_id)REFERENCES classes(id)ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS students(id INTEGER PRIMARY KEY AUTOINCREMENT,class_id INTEGER NOT NULL,full_name TEXT NOT NULL,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(class_id)REFERENCES classes(id)ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS evaluation_models(id INTEGER PRIMARY KEY AUTOINCREMENT,class_id INTEGER NOT NULL,name TEXT NOT NULL,FOREIGN KEY(class_id)REFERENCES classes(id)ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS model_traits(id INTEGER PRIMARY KEY AUTOINCREMENT,model_id INTEGER NOT NULL,trait_type TEXT NOT NULL,weight REAL NOT NULL DEFAULT 0,FOREIGN KEY(model_id)REFERENCES evaluation_models(id)ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS periods(id INTEGER PRIMARY KEY AUTOINCREMENT,class_id INTEGER NOT NULL,name TEXT NOT NULL,start_date TEXT,end_date TEXT,weight REAL DEFAULT 33.33,model_id INTEGER,position INTEGER DEFAULT 0,FOREIGN KEY(class_id)REFERENCES classes(id)ON DELETE CASCADE,FOREIGN KEY(model_id)REFERENCES evaluation_models(id)ON DELETE SET NULL);
-CREATE TABLE IF NOT EXISTS attendance_days(id INTEGER PRIMARY KEY AUTOINCREMENT,period_id INTEGER NOT NULL,day TEXT NOT NULL,month TEXT NOT NULL,date_label TEXT NOT NULL,position INTEGER DEFAULT 0,FOREIGN KEY(period_id)REFERENCES periods(id)ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS attendance_records(id INTEGER PRIMARY KEY AUTOINCREMENT,day_id INTEGER NOT NULL,student_id INTEGER NOT NULL,present INTEGER DEFAULT 0,UNIQUE(day_id,student_id),FOREIGN KEY(day_id)REFERENCES attendance_days(id)ON DELETE CASCADE,FOREIGN KEY(student_id)REFERENCES students(id)ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS evidences(id INTEGER PRIMARY KEY AUTOINCREMENT,period_id INTEGER NOT NULL,trait_type TEXT NOT NULL,name TEXT NOT NULL,position INTEGER DEFAULT 0,FOREIGN KEY(period_id)REFERENCES periods(id)ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS evidence_grades(id INTEGER PRIMARY KEY AUTOINCREMENT,evidence_id INTEGER NOT NULL,student_id INTEGER NOT NULL,grade REAL,UNIQUE(evidence_id,student_id),FOREIGN KEY(evidence_id)REFERENCES evidences(id)ON DELETE CASCADE,FOREIGN KEY(student_id)REFERENCES students(id)ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS calendar_events(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,class_id INTEGER,class_name TEXT NOT NULL,day_of_week TEXT NOT NULL,start_time TEXT NOT NULL,end_time TEXT NOT NULL,color TEXT DEFAULT '#c0185a',FOREIGN KEY(user_id)REFERENCES users(id)ON DELETE CASCADE);
-`)
-// Migration: older databases have a legacy calendar_events table (missing user_id/color,
-// class_id wrongly NOT NULL). CREATE TABLE IF NOT EXISTS won't update it, so rebuild it here.
-{
-  const cols=db.prepare("PRAGMA table_info(calendar_events)").all().map(c=>c.name)
-  if(cols.length&&!cols.includes('user_id')){
-    db.pragma('foreign_keys = OFF')
-    db.exec(`
-      CREATE TABLE calendar_events_new(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,class_id INTEGER,class_name TEXT NOT NULL,day_of_week TEXT NOT NULL,start_time TEXT NOT NULL,end_time TEXT NOT NULL,color TEXT DEFAULT '#c0185a',FOREIGN KEY(user_id)REFERENCES users(id)ON DELETE CASCADE);
-      INSERT INTO calendar_events_new(id,user_id,class_id,class_name,day_of_week,start_time,end_time,color)
-        SELECT ce.id,COALESCE(c.user_id,(SELECT id FROM users ORDER BY id LIMIT 1)),ce.class_id,ce.class_name,ce.day_of_week,ce.start_time,ce.end_time,'#c0185a'
-        FROM calendar_events ce LEFT JOIN classes c ON c.id=ce.class_id;
-      DROP TABLE calendar_events;
-      ALTER TABLE calendar_events_new RENAME TO calendar_events;
-    `)
-    db.pragma('foreign_keys = ON')
+// PostgreSQL data layer (Neon). Reads connection string from DATABASE_URL env var.
+const { Pool } = require('pg')
+const bcrypt = require('bcryptjs')
+const crypto = require('crypto')
+
+if (!process.env.DATABASE_URL) {
+  console.error('❌ Falta DATABASE_URL. Copia backend/.env.example a backend/.env y pon tu cadena de Neon.')
+  process.exit(1)
+}
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL.includes('neon.tech')?{rejectUnauthorized:false}:false,
+})
+
+// ---- Small async query helpers so route code stays close to the old shape ----
+// query(sql, params) -> full result; get -> first row or undefined; all -> rows; run -> {rowCount, rows}
+async function query(sql, params = []) { return pool.query(sql, params) }
+async function get(sql, params = []) { const r = await pool.query(sql, params); return r.rows[0] }
+async function all(sql, params = []) { const r = await pool.query(sql, params); return r.rows }
+async function run(sql, params = []) { const r = await pool.query(sql, params); return { rowCount: r.rowCount, rows: r.rows } }
+
+const genRecoveryCode = () => { const a='ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<12;i++){ if(i&&i%4===0)s+='-'; s+=a[crypto.randomInt(a.length)] } return s }
+
+// ---- Schema creation (Postgres dialect). Idempotent via IF NOT EXISTS. ----
+async function init() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS users(
+      id SERIAL PRIMARY KEY,
+      employee_number TEXT UNIQUE NOT NULL,
+      nip TEXT NOT NULL,
+      name TEXT NOT NULL,
+      theme TEXT DEFAULT 'pink',
+      recovery_code TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS classes(
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      color TEXT DEFAULT '#c0185a',
+      highlight_field1 TEXT, highlight_field2 TEXT, highlight_field3 TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS class_details(
+      id SERIAL PRIMARY KEY,
+      class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      label TEXT NOT NULL, value TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS students(
+      id SERIAL PRIMARY KEY,
+      class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      full_name TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS evaluation_models(
+      id SERIAL PRIMARY KEY,
+      class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      name TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS model_traits(
+      id SERIAL PRIMARY KEY,
+      model_id INTEGER NOT NULL REFERENCES evaluation_models(id) ON DELETE CASCADE,
+      trait_type TEXT NOT NULL, weight REAL NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS periods(
+      id SERIAL PRIMARY KEY,
+      class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      name TEXT NOT NULL, start_date TEXT, end_date TEXT,
+      weight REAL DEFAULT 33.33,
+      model_id INTEGER REFERENCES evaluation_models(id) ON DELETE SET NULL,
+      position INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS attendance_days(
+      id SERIAL PRIMARY KEY,
+      period_id INTEGER NOT NULL REFERENCES periods(id) ON DELETE CASCADE,
+      day TEXT NOT NULL, month TEXT NOT NULL, date_label TEXT NOT NULL,
+      position INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS attendance_records(
+      id SERIAL PRIMARY KEY,
+      day_id INTEGER NOT NULL REFERENCES attendance_days(id) ON DELETE CASCADE,
+      student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+      present INTEGER DEFAULT 0,
+      UNIQUE(day_id, student_id)
+    );
+    CREATE TABLE IF NOT EXISTS evidences(
+      id SERIAL PRIMARY KEY,
+      period_id INTEGER NOT NULL REFERENCES periods(id) ON DELETE CASCADE,
+      trait_type TEXT NOT NULL, name TEXT NOT NULL, position INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS evidence_grades(
+      id SERIAL PRIMARY KEY,
+      evidence_id INTEGER NOT NULL REFERENCES evidences(id) ON DELETE CASCADE,
+      student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+      grade REAL,
+      UNIQUE(evidence_id, student_id)
+    );
+    CREATE TABLE IF NOT EXISTS calendar_events(
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      class_id INTEGER,
+      class_name TEXT NOT NULL, day_of_week TEXT NOT NULL,
+      start_time TEXT NOT NULL, end_time TEXT NOT NULL,
+      color TEXT DEFAULT '#c0185a'
+    );
+  `)
+
+  // Seed demo user (hashed NIP) if the users table is empty.
+  const existing = await get('SELECT id FROM users WHERE employee_number=$1', ['12345'])
+  if (!existing) {
+    const hash = bcrypt.hashSync('0000', 10)
+    const code = genRecoveryCode()
+    await run('INSERT INTO users(employee_number,nip,name,recovery_code) VALUES($1,$2,$3,$4)', ['12345', hash, 'Francisco Paulín', code])
+    console.log(`🔑 Usuario demo creado — Clave 12345, NIP 0000. Código de recuperación: ${code}`)
   }
+  console.log('✅ Esquema PostgreSQL listo.')
 }
-// Migration: add highlight_field3 column to classes (third highlighted badge on cards).
-// CREATE TABLE IF NOT EXISTS won't alter an existing table, so ALTER here (guarded, runs once).
-{
-  const ccols=db.prepare("PRAGMA table_info(classes)").all().map(c=>c.name)
-  if(!ccols.includes('highlight_field3'))db.exec("ALTER TABLE classes ADD COLUMN highlight_field3 TEXT")
-}
-if(!db.prepare("SELECT id FROM users WHERE employee_number='12345'").get())
-  db.prepare("INSERT INTO users(employee_number,nip,name)VALUES(?,?,?)").run('12345','0000','Francisco Paulín')
-// Migration: add recovery_code column to users (for NIP recovery) and backfill existing accounts.
-// ALTER TABLE ADD COLUMN is safe on an existing table; guarded so it only runs once.
-{
-  const crypto=require('crypto')
-  const genRecoveryCode=()=>{const a='ABCDEFGHJKMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<12;i++){if(i&&i%4===0)s+='-';s+=a[crypto.randomInt(a.length)]}return s}
-  const ucols=db.prepare("PRAGMA table_info(users)").all().map(c=>c.name)
-  if(!ucols.includes('recovery_code'))db.exec("ALTER TABLE users ADD COLUMN recovery_code TEXT")
-  const need=db.prepare("SELECT id,employee_number,name FROM users WHERE recovery_code IS NULL OR recovery_code=''").all()
-  if(need.length){
-    const upd=db.prepare("UPDATE users SET recovery_code=? WHERE id=?")
-    console.log('🔑 Códigos de recuperación generados (guárdalos en un lugar seguro):')
-    for(const u of need){const code=genRecoveryCode();upd.run(code,u.id);console.log(`   • Clave ${u.employee_number} (${u.name}): ${code}`)}
-  }
-}
-// Migration: hash any plain-text NIPs already stored (security gate before hosting).
-// bcrypt hashes start with "$2"; rows already hashed are skipped, so this is idempotent.
-{
-  const bcrypt=require('bcryptjs')
-  const rows=db.prepare("SELECT id,nip FROM users").all()
-  const upd=db.prepare("UPDATE users SET nip=? WHERE id=?")
-  let migrated=0
-  for(const r of rows){
-    if(typeof r.nip==='string'&&r.nip.startsWith('$2'))continue // already hashed
-    upd.run(bcrypt.hashSync(String(r.nip),10),r.id)
-    migrated++
-  }
-  if(migrated>0)console.log(`🔒 ${migrated} NIP(s) cifrado(s) con bcrypt.`)
-}
-module.exports=db
+
+module.exports = { pool, query, get, all, run, init, genRecoveryCode }

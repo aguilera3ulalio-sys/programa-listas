@@ -1,5 +1,7 @@
+require('dotenv').config()
 const express=require('express'),cors=require('cors'),app=express(),PORT=process.env.PORT||3001
-app.use(cors({origin:['http://localhost:5173','http://localhost:5174']}))
+const db=require('./db/database')
+app.use(cors())
 app.use(express.json())
 app.use('/api/auth',require('./routes/auth'))
 app.use('/api/classes',require('./routes/classes'))
@@ -9,4 +11,6 @@ app.use('/api/attendance',require('./routes/attendance'))
 app.use('/api/evidences',require('./routes/evidences'))
 app.use('/api/calendar',require('./routes/calendar'))
 app.get('/api/health',(req,res)=>res.json({status:'ok'}))
-app.listen(PORT,()=>console.log(`✅ Servidor en http://localhost:${PORT}`))
+db.init().then(()=>{
+  app.listen(PORT,()=>console.log(`✅ Servidor en http://localhost:${PORT}`))
+}).catch(e=>{console.error('❌ No se pudo iniciar la base de datos:',e.message);process.exit(1)})

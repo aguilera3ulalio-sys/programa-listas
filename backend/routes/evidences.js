@@ -1,59 +1,70 @@
 const express=require('express'),router=express.Router(),db=require('../db/database')
 
-// MUST be before /:id
-router.get('/pending',(req,res)=>{
-  const classes=db.prepare('SELECT * FROM classes WHERE user_id=?').all(req.query.user_id)
-  const result=[]
-  classes.forEach(cls=>{
-    const details=db.prepare('SELECT value FROM class_details WHERE class_id=? ORDER BY id LIMIT 2').all(cls.id)
-    const periods=db.prepare('SELECT * FROM periods WHERE class_id=? ORDER BY position').all(cls.id)
-    const studentCount=db.prepare('SELECT COUNT(*) as c FROM students WHERE class_id=?').get(cls.id).c
-    if(studentCount===0)return
-    periods.forEach(period=>{
-      const evidences=db.prepare('SELECT * FROM evidences WHERE period_id=? ORDER BY position').all(period.id)
-      evidences.forEach(ev=>{
-        const graded=db.prepare('SELECT COUNT(*) as c FROM evidence_grades WHERE evidence_id=? AND grade IS NOT NULL').get(ev.id).c
-        const missing=studentCount-graded
-        if(missing>0)result.push({
-          evidence_id:ev.id,evidence_name:ev.name,trait_type:ev.trait_type,
-          class_id:cls.id,class_name:cls.name,class_color:cls.color||'#c0185a',
-          period_id:period.id,period_name:period.name,period_position:period.position,
-          detail1:details[0]?.value||'',detail2:details[1]?.value||'',
-          missing_count:missing,total_students:studentCount
-        })
-      })
-    })
-  })
-  res.json(result)
+router.get('/pending',async(req,res)=>{
+  try{
+    const classes=await db.all('SELECT * FROM classes WHERE user_id=$1',[req.query.user_id])
+    const result=[]
+    for(const cls of classes){
+      const details=await db.all('SELECT value FROM class_details WHERE class_id=$1 ORDER BY id LIMIT 2',[cls.id])
+      const periods=await db.all('SELECT * FROM periods WHERE class_id=$1 ORDER BY position',[cls.id])
+      const scRow=await db.get('SELECT COUNT(*)::int AS c FROM students WHERE class_id=$1',[cls.id])
+      const studentCount=scRow.c
+      if(studentCount===0)continue
+      for(const period of periods){
+        const evidences=await db.all('SELECT * FROM evidences WHERE period_id=$1 ORDER BY position',[period.id])
+        for(const ev of evidences){
+          const gRow=await db.get('SELECT COUNT(*)::int AS c FROM evidence_grades WHERE evidence_id=$1 AND grade IS NOT NULL',[ev.id])
+          const missing=studentCount-gRow.c
+          if(missing>0)result.push({
+            evidence_id:ev.id,evidence_name:ev.name,trait_type:ev.trait_type,
+            class_id:cls.id,class_name:cls.name,class_color:cls.color||'#c0185a',
+            period_id:period.id,period_name:period.name,period_position:period.position,
+            detail1:details[0]?.value||'',detail2:details[1]?.value||'',
+            missing_count:missing,total_students:studentCount
+          })
+        }
+      }
+    }
+    res.json(result)
+  }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
 })
 
-router.get('/',(req,res)=>{
-  const evs=db.prepare('SELECT * FROM evidences WHERE period_id=? ORDER BY position').all(req.query.period_id)
-  const grades={}
-  evs.forEach(ev=>db.prepare('SELECT * FROM evidence_grades WHERE evidence_id=?').all(ev.id).forEach(g=>{grades[`${g.evidence_id}_${g.student_id}`]=g.grade}))
-  res.json({evidences:evs,grades})
+router.get('/',async(req,res)=>{
+  try{
+    const evs=await db.all('SELECT * FROM evidences WHERE period_id=$1 ORDER BY position',[req.query.period_id])
+    const grades={}
+    for(const ev of evs){
+      const gs=await db.all('SELECT * FROM evidence_grades WHERE evidence_id=$1',[ev.id])
+      gs.forEach(g=>{grades[`${g.evidence_id}_${g.student_id}`]=g.grade})
+    }
+    res.json({evidences:evs,grades})
+  }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
 })
 
-router.post('/',(req,res)=>{
-  const{period_id,trait_type}=req.body
-  const count=db.prepare('SELECT COUNT(*) as c FROM evidences WHERE period_id=? AND trait_type=?').get(period_id,trait_type).c
-  const period=db.prepare('SELECT class_id FROM periods WHERE id=?').get(period_id)
-  const students=db.prepare('SELECT id FROM students WHERE class_id=?').all(period.class_id)
-  const r=db.prepare('INSERT INTO evidences(period_id,trait_type,name,position)VALUES(?,?,?,?)').run(period_id,trait_type,`${trait_type} ${count+1}`,count)
-  const s=db.prepare('INSERT OR IGNORE INTO evidence_grades(evidence_id,student_id)VALUES(?,?)')
-  students.forEach(st=>s.run(r.lastInsertRowid,st.id))
-  res.json({id:r.lastInsertRowid,period_id,trait_type,name:`${trait_type} ${count+1}`,position:count})
+router.post('/',async(req,res)=>{
+  try{
+    const{period_id,trait_type}=req.body
+    const cRow=await db.get('SELECT COUNT(*)::int AS c FROM evidences WHERE period_id=$1 AND trait_type=$2',[period_id,trait_type])
+    const count=cRow.c
+    const period=await db.get('SELECT class_id FROM periods WHERE id=$1',[period_id])
+    const students=await db.all('SELECT id FROM students WHERE class_id=$1',[period.class_id])
+    const name=`${trait_type} ${count+1}`
+    const r=await db.run('INSERT INTO evidences(period_id,trait_type,name,position)VALUES($1,$2,$3,$4) RETURNING id',[period_id,trait_type,name,count])
+    const evId=r.rows[0].id
+    for(const st of students)await db.run('INSERT INTO evidence_grades(evidence_id,student_id)VALUES($1,$2) ON CONFLICT(evidence_id,student_id) DO NOTHING',[evId,st.id])
+    res.json({id:evId,period_id,trait_type,name,position:count})
+  }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
 })
 
-router.post('/:id/grades',(req,res)=>{
-  const s=db.prepare('INSERT OR REPLACE INTO evidence_grades(evidence_id,student_id,grade)VALUES(?,?,?)')
-  req.body.grades.forEach(({student_id,grade})=>s.run(req.params.id,student_id,grade))
-  res.json({success:true})
+router.post('/:id/grades',async(req,res)=>{
+  try{
+    for(const {student_id,grade} of req.body.grades)await db.run('INSERT INTO evidence_grades(evidence_id,student_id,grade)VALUES($1,$2,$3) ON CONFLICT(evidence_id,student_id) DO UPDATE SET grade=EXCLUDED.grade',[req.params.id,student_id,grade])
+    res.json({success:true})
+  }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
 })
 
-router.delete('/:id',(req,res)=>{
-  db.prepare('DELETE FROM evidences WHERE id=?').run(req.params.id)
-  res.json({success:true})
+router.delete('/:id',async(req,res)=>{
+  try{await db.run('DELETE FROM evidences WHERE id=$1',[req.params.id]);res.json({success:true})}
+  catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
 })
-
 module.exports=router

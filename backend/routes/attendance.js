@@ -1,7 +1,41 @@
 const express=require('express'),router=express.Router(),db=require('../db/database')
-router.get('/',(req,res)=>{const days=db.prepare('SELECT * FROM attendance_days WHERE period_id=? ORDER BY position').all(req.query.period_id);const records={};days.forEach(d=>db.prepare('SELECT * FROM attendance_records WHERE day_id=?').all(d.id).forEach(r=>{records[`${r.day_id}_${r.student_id}`]=r.present}));res.json({days,records})})
-router.post('/save',(req,res)=>{const{period_id,records,new_day}=req.body;if(new_day){const p=db.prepare('SELECT class_id FROM periods WHERE id=?').get(period_id);const sts=db.prepare('SELECT id FROM students WHERE class_id=?').all(p.class_id);const cnt=db.prepare('SELECT COUNT(*) as c FROM attendance_days WHERE period_id=?').get(period_id).c;const r=db.prepare('INSERT INTO attendance_days(period_id,day,month,date_label,position)VALUES(?,?,?,?,?)').run(period_id,new_day.day,new_day.month,`${new_day.day} ${new_day.month}`,cnt);const s=db.prepare('INSERT OR IGNORE INTO attendance_records(day_id,student_id,present)VALUES(?,?,0)');sts.forEach(st=>s.run(r.lastInsertRowid,st.id))}
-if(records){const s=db.prepare('INSERT OR REPLACE INTO attendance_records(day_id,student_id,present)VALUES(?,?,?)');Object.entries(records).forEach(([k,v])=>{const[d,st]=k.split('_');s.run(parseInt(d),parseInt(st),v?1:0)})}
-const days=db.prepare('SELECT * FROM attendance_days WHERE period_id=? ORDER BY position').all(period_id);const allRecords={};days.forEach(d=>db.prepare('SELECT * FROM attendance_records WHERE day_id=?').all(d.id).forEach(r=>{allRecords[`${r.day_id}_${r.student_id}`]=r.present}));res.json({days,records:allRecords})})
-router.delete('/day/:id',(req,res)=>{db.prepare('DELETE FROM attendance_days WHERE id=?').run(req.params.id);res.json({success:true})})
+async function buildRecords(days){
+  const records={}
+  for(const d of days){
+    const rs=await db.all('SELECT * FROM attendance_records WHERE day_id=$1',[d.id])
+    rs.forEach(r=>{records[`${r.day_id}_${r.student_id}`]=r.present})
+  }
+  return records
+}
+router.get('/',async(req,res)=>{
+  try{
+    const days=await db.all('SELECT * FROM attendance_days WHERE period_id=$1 ORDER BY position',[req.query.period_id])
+    res.json({days,records:await buildRecords(days)})
+  }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
+})
+router.post('/save',async(req,res)=>{
+  try{
+    const{period_id,records,new_day}=req.body
+    if(new_day){
+      const p=await db.get('SELECT class_id FROM periods WHERE id=$1',[period_id])
+      const sts=await db.all('SELECT id FROM students WHERE class_id=$1',[p.class_id])
+      const cntRow=await db.get('SELECT COUNT(*)::int AS c FROM attendance_days WHERE period_id=$1',[period_id])
+      const r=await db.run('INSERT INTO attendance_days(period_id,day,month,date_label,position)VALUES($1,$2,$3,$4,$5) RETURNING id',[period_id,new_day.day,new_day.month,`${new_day.day} ${new_day.month}`,cntRow.c])
+      const dayId=r.rows[0].id
+      for(const st of sts)await db.run('INSERT INTO attendance_records(day_id,student_id,present)VALUES($1,$2,0) ON CONFLICT(day_id,student_id) DO NOTHING',[dayId,st.id])
+    }
+    if(records){
+      for(const [k,v] of Object.entries(records)){
+        const[d,st]=k.split('_')
+        await db.run('INSERT INTO attendance_records(day_id,student_id,present)VALUES($1,$2,$3) ON CONFLICT(day_id,student_id) DO UPDATE SET present=EXCLUDED.present',[parseInt(d),parseInt(st),v?1:0])
+      }
+    }
+    const days=await db.all('SELECT * FROM attendance_days WHERE period_id=$1 ORDER BY position',[period_id])
+    res.json({days,records:await buildRecords(days)})
+  }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
+})
+router.delete('/day/:id',async(req,res)=>{
+  try{await db.run('DELETE FROM attendance_days WHERE id=$1',[req.params.id]);res.json({success:true})}
+  catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
+})
 module.exports=router
