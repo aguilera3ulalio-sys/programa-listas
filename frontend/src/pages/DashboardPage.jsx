@@ -15,17 +15,94 @@ function TagInput({value,onChange,max=6}){
     {value.length<max&&<input id="taginp" className="tag-input" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={add} placeholder={value.length===0?'Escribe y presiona Enter...':''}/>}
   </div>)
 }
+const CAL_DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes']
+const CAL_DAY_KEYS=['lunes','martes','miercoles','jueves','viernes']
+const CAL_HOURS=[7,8,9,10,11,12,13,14,15,16,17,18]
 function AddModal({onClose,onCreated}){
-  const{user}=useAuth();const[name,setName]=useState('');const[tags,setTags]=useState([]);const[loading,setLoading]=useState(false);const[error,setError]=useState('')
-  const submit=async e=>{e.preventDefault();if(!name.trim())return setError('El nombre es requerido');if(tags.length===0)return setError('Agrega al menos un dato');setLoading(true);try{const c=await api.createClass({user_id:user.id,name:name.trim(),details:tags});onCreated(c);onClose()}catch(err){setError(err.message)}finally{setLoading(false)}}
-  return(<div className="modal-overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
-    <h2 className="modal-title">Creando una clase</h2>
-    {error&&<div className="alert alert-error">{error}</div>}
-    <form onSubmit={submit}>
-      <div className="form-group"><label className="form-label">Nombre de la clase</label><input className="form-input" placeholder="Ej. Introducción a la Programación" value={name} onChange={e=>setName(e.target.value)} autoFocus/></div>
-      <div className="form-group"><label className="form-label">Datos <span style={{fontWeight:400,textTransform:'none'}}>(máx. 6, Enter)</span></label><TagInput value={tags} onChange={setTags}/></div>
-      <div className="modal-actions"><button type="button" className="btn" onClick={onClose}>Cancelar</button><button type="submit" className="btn btn-primary" disabled={loading}>{loading?'Creando...':'Crear'}</button></div>
-    </form>
+  const{user}=useAuth()
+  const[name,setName]=useState('');const[tags,setTags]=useState([])
+  const[loading,setLoading]=useState(false);const[error,setError]=useState('')
+  // Step 2: offer to add the freshly-created class to the calendar
+  const[created,setCreated]=useState(null)
+  const[days,setDays]=useState([]);const[start,setStart]=useState('');const[end,setEnd]=useState('')
+  const[calLoading,setCalLoading]=useState(false)
+
+  const submit=async e=>{
+    e.preventDefault()
+    if(!name.trim())return setError('El nombre es requerido')
+    if(tags.length===0)return setError('Agrega al menos un dato')
+    setLoading(true)
+    try{
+      const c=await api.createClass({user_id:user.id,name:name.trim(),details:tags})
+      onCreated(c)
+      setCreated(c)   // move to calendar step instead of closing
+    }catch(err){setError(err.message)}finally{setLoading(false)}
+  }
+
+  const toggleDay=d=>setDays(p=>p.includes(d)?p.filter(x=>x!==d):[...p,d])
+  const endOptions=start?CAL_HOURS.filter(h=>h>parseInt(start)).concat([19]).filter((v,i,a)=>a.indexOf(v)===i):[]
+
+  const addToCalendar=async()=>{
+    setError('')
+    if(days.length===0)return setError('Selecciona al menos un día')
+    if(!start||!end)return setError('Selecciona el horario')
+    if(parseInt(end)<=parseInt(start))return setError('La hora fin debe ser mayor que la de inicio')
+    setCalLoading(true)
+    try{
+      await Promise.all(days.map(day=>api.addEvent({
+        user_id:user.id,class_id:created.id,class_name:created.name,
+        day_of_week:day,start_time:String(start),end_time:String(end),
+        color:created.color||'#c0185a',
+      })))
+      onClose()
+    }catch(err){setError(err.message)}finally{setCalLoading(false)}
+  }
+
+  return(<div className="modal-overlay" style={{alignItems:'flex-start',paddingTop:40}} onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
+    {!created?(<>
+      <h2 className="modal-title">Creando una clase</h2>
+      {error&&<div className="alert alert-error">{error}</div>}
+      <form onSubmit={submit}>
+        <div className="form-group"><label className="form-label">Nombre de la clase</label><input className="form-input" placeholder="Ej. Introducción a la Programación" value={name} onChange={e=>setName(e.target.value)} autoFocus/></div>
+        <div className="form-group"><label className="form-label">Datos <span style={{fontWeight:400,textTransform:'none'}}>(máx. 6, Enter)</span></label><TagInput value={tags} onChange={setTags}/></div>
+        <div className="modal-actions"><button type="button" className="btn" onClick={onClose}>Cancelar</button><button type="submit" className="btn btn-primary" disabled={loading}>{loading?'Creando...':'Crear'}</button></div>
+      </form>
+    </>):(<>
+      <h2 className="modal-title">¿Agregar al calendario?</h2>
+      <p style={{fontSize:13,color:'#888',marginBottom:16,lineHeight:1.5}}>
+        <strong>{created.name}</strong> se creó correctamente. Si quieres, agrégala a tu calendario semanal ahora.
+      </p>
+      {error&&<div className="alert alert-error">{error}</div>}
+      <div className="form-group">
+        <label className="form-label">Días</label>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {CAL_DAYS.map((d,i)=>(
+            <button key={d} type="button" className={`pill ${days.includes(CAL_DAY_KEYS[i])?'active':''}`} onClick={()=>toggleDay(CAL_DAY_KEYS[i])}>{d}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+        <div className="form-group">
+          <label className="form-label">Hora inicio</label>
+          <select className="form-select" value={start} onChange={e=>{setStart(e.target.value);setEnd('')}}>
+            <option value="">Seleccionar</option>
+            {CAL_HOURS.map(h=><option key={h} value={h}>{h}:00</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Hora fin</label>
+          <select className="form-select" value={end} onChange={e=>setEnd(e.target.value)} disabled={!start}>
+            <option value="">{start?'Seleccionar':'Elige inicio primero'}</option>
+            {endOptions.map(h=><option key={h} value={h}>{h}:00</option>)}
+          </select>
+        </div>
+      </div>
+      {start&&end&&<p style={{fontSize:11,color:'#888',marginTop:-6,marginBottom:12}}>Duración: {parseInt(end)-parseInt(start)} hora{parseInt(end)-parseInt(start)!==1?'s':''}</p>}
+      <div className="modal-actions">
+        <button type="button" className="btn" onClick={onClose}>Omitir</button>
+        <button type="button" className="btn btn-primary" onClick={addToCalendar} disabled={calLoading}>{calLoading?'Agregando...':'Agregar al calendario'}</button>
+      </div>
+    </>)}
   </div></div>)
 }
 function DeleteModal({cls,onClose,onDeleted}){
