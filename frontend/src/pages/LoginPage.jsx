@@ -33,15 +33,15 @@ export default function LoginPage(){
   const continueAfterCode=()=>{login(showCode.user,remember);navigate('/')}
 
   return(
-    <div style={{display:'flex',minHeight:'100vh'}}>
-      <div style={{width:'44%',background:'#1a1a26',display:'flex',flexDirection:'column',justifyContent:'center',padding:'52px 44px'}}>
-        <img src={logoUrl} alt="UAQ FIF" style={{width:80,height:80,objectFit:'contain',background:'#fff',padding:6,borderRadius:10,marginBottom:28}}/>
-        <div style={{fontSize:32,fontWeight:700,color:'#fff',lineHeight:1.2,marginBottom:12}}>UAQ<br/>Docentes</div>
-        <div style={{fontSize:13,color:'#8888aa',lineHeight:1.7}}>Sistema de gestión académica<br/>para docentes</div>
-        <div style={{marginTop:40,fontSize:11,color:'#44445a'}}>Facultad de Informática · UAQ</div>
+    <div className="login-shell" style={{display:'flex',minHeight:'100vh'}}>
+      <div className="login-banner" style={{width:'44%',background:'#1a1a26',display:'flex',flexDirection:'column',justifyContent:'center',padding:'52px 44px'}}>
+        <img src={logoUrl} alt="UAQ FIF" className="login-banner-logo" style={{width:80,height:80,objectFit:'contain',background:'#fff',padding:6,borderRadius:10,marginBottom:28,flexShrink:0}}/>
+        <div><div className="login-banner-title" style={{fontSize:32,fontWeight:700,color:'#fff',lineHeight:1.2,marginBottom:12}}>UAQ<br/>Docentes</div>
+        <div className="login-banner-sub" style={{fontSize:13,color:'#8888aa',lineHeight:1.7}}>Sistema de gestión académica<br/>para docentes</div></div>
+        <div className="login-banner-foot" style={{marginTop:40,fontSize:11,color:'#44445a'}}>Facultad de Informática · UAQ</div>
       </div>
-      <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
-        <div style={{background:'#fff',borderRadius:14,padding:32,width:'100%',maxWidth:360,boxShadow:'0 4px 24px rgba(0,0,0,.08)'}}>
+      <div className="login-panel" style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+        <div className="login-card" style={{background:'#fff',borderRadius:14,padding:32,width:'100%',maxWidth:360,boxShadow:'0 4px 24px rgba(0,0,0,.08)'}}>
 
           {showCode?(
             <div>

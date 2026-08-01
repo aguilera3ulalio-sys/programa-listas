@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api'
-import Sidebar from '../components/Sidebar'
+import Sidebar,{MenuButton} from '../components/Sidebar'
 import logoUrl from '../assets/logo.js'
 
 function Section({ title, description, children }) {
@@ -17,7 +17,8 @@ function Section({ title, description, children }) {
 }
 
 export default function SettingsPage() {
-  const { user, updateUser } = useAuth()
+    const[menuOpen,setMenuOpen]=useState(false)
+const { user, updateUser } = useAuth()
 
   // Name
   const [name, setName] = useState(user.name || '')
@@ -70,10 +71,10 @@ export default function SettingsPage() {
 
   return (
     <div className="app-shell">
-      <Sidebar />
+      <Sidebar open={menuOpen} onClose={()=>setMenuOpen(false)} />
       <div className="main-content">
         <div className="topbar">
-          <div className="topbar-left">
+          <div className="topbar-left"><MenuButton onClick={()=>setMenuOpen(true)}/>
             <img src={logoUrl} alt="UAQ" className="topbar-logo" />
             <div>
               <div className="page-title">Ajustes</div>

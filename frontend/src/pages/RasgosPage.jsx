@@ -1,7 +1,7 @@
 import{useState,useEffect}from'react'
 import{useParams,useNavigate}from'react-router-dom'
 import{api}from'../api'
-import Sidebar from'../components/Sidebar'
+import Sidebar,{MenuButton} from '../components/Sidebar'
 import logoUrl from'../assets/logo.js'
 const TRAIT_KEYS=['actividades','tareas','proyecto','examen','practicas','asistencia','trabajos']
 const TRAIT_LABELS={actividades:'Actividades',tareas:'Tareas',proyecto:'Proyecto',examen:'Examen',practicas:'Prácticas',asistencia:'Asistencia',trabajos:'Trabajos'}
@@ -43,15 +43,16 @@ function ModelCard({model,onSave,onDelete,periodsUsing}){
   </div></div>)
 }
 export default function RasgosPage(){
-  const{id}=useParams();const navigate=useNavigate()
+    const[menuOpen,setMenuOpen]=useState(false)
+const{id}=useParams();const navigate=useNavigate()
   const[models,setModels]=useState([]);const[periods,setPeriods]=useState([]);const[loading,setLoading]=useState(true);const[clsName,setClsName]=useState('');const[msg,setMsg]=useState('')
   useEffect(()=>{Promise.all([api.getModels(id),api.getPeriods(id),api.getClass(id)]).then(([m,p,c])=>{setModels(m);setPeriods(p);setClsName(c.name)}).catch(console.error).finally(()=>setLoading(false))},[id])
   const handleSave=async(mid,data)=>{const u=await api.updateModel(mid,data);setModels(p=>p.map(m=>m.id===mid?u:m));setMsg('Guardado');setTimeout(()=>setMsg(''),2500)}
   const handleDelete=async mid=>{if(!confirm('¿Eliminar modelo?'))return;await api.deleteModel(mid);setModels(p=>p.filter(m=>m.id!==mid))}
   const handleAdd=async()=>{const m=await api.addModel(id,`Modelo ${models.length+1}`);setModels(p=>[...p,m])}
   const getUsing=mid=>periods.filter(p=>p.model_id===mid).map(p=>p.name)
-  return(<div className="app-shell"><Sidebar/><div className="main-content">
-    <div className="topbar"><div className="topbar-left"><img src={logoUrl} alt="UAQ" className="topbar-logo"/><div className="topbar-breadcrumb"><button className="back-link" onClick={()=>navigate(`/clase/${id}`)}>← {clsName}</button><span className="page-title">Rasgos</span></div></div></div>
+  return(<div className="app-shell"><Sidebar open={menuOpen} onClose={()=>setMenuOpen(false)}/><div className="main-content">
+    <div className="topbar"><div className="topbar-left"><MenuButton onClick={()=>setMenuOpen(true)}/><img src={logoUrl} alt="UAQ" className="topbar-logo"/><div className="topbar-breadcrumb"><button className="back-link" onClick={()=>navigate(`/clase/${id}`)}>← {clsName}</button><span className="page-title">Rasgos</span></div></div></div>
     <div className="content" style={{maxWidth:620}}>
       <p style={{fontSize:13,color:'#888',marginBottom:20,lineHeight:1.6}}>Define los modelos de evaluación. Cada modelo establece qué % pesa cada evidencia. La suma debe ser <strong>100%</strong>.</p>
       {msg&&<div className="alert alert-success">{msg}</div>}

@@ -1,14 +1,15 @@
 import{useState,useEffect}from'react'
 import{useParams,useNavigate}from'react-router-dom'
 import{api}from'../api'
-import Sidebar from'../components/Sidebar'
+import Sidebar,{MenuButton} from '../components/Sidebar'
 import logoUrl from'../assets/logo.js'
 const PlusIcon=()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 const TrashIcon=()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
 const SaveIcon=()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
 const NAMES=['Primer parcial','Segundo parcial','Tercer parcial','Cuarto parcial','Quinto parcial']
 export default function PeriosPage(){
-  const{id}=useParams();const navigate=useNavigate()
+    const[menuOpen,setMenuOpen]=useState(false)
+const{id}=useParams();const navigate=useNavigate()
   const[periods,setPeriods]=useState([]);const[models,setModels]=useState([]);const[clsName,setClsName]=useState('');const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);const[error,setError]=useState('');const[msg,setMsg]=useState('')
   useEffect(()=>{Promise.all([api.getPeriods(id),api.getModels(id),api.getClass(id)]).then(([p,m,c])=>{setPeriods(p);setModels(m);setClsName(c.name)}).catch(console.error).finally(()=>setLoading(false))},[id])
   const update=(i,f,v)=>{setPeriods(p=>p.map((x,j)=>j===i?{...x,[f]:v}:x));setError('')}
@@ -16,8 +17,8 @@ export default function PeriosPage(){
   const removePeriod=i=>{if(periods.length<=1)return;setPeriods(p=>p.filter((_,j)=>j!==i))}
   const handleSave=async()=>{const tot=periods.reduce((s,p)=>s+(parseFloat(p.weight)||0),0);if(Math.abs(tot-100)>0.5)return setError(`Suma debe ser 100%. Actual: ${tot.toFixed(1)}%`);setSaving(true);try{const saved=await api.savePeriods(id,periods.map(p=>({name:p.name,start_date:p.start_date||null,end_date:p.end_date||null,weight:parseFloat(p.weight)||33.33,model_id:p.model_id?parseInt(p.model_id):null})));setPeriods(saved);setMsg('Guardado');setTimeout(()=>setMsg(''),2500)}catch(err){setError(err.message)}finally{setSaving(false)}}
   const tot=periods.reduce((s,p)=>s+(parseFloat(p.weight)||0),0);const valid=Math.abs(tot-100)<0.5
-  return(<div className="app-shell"><Sidebar/><div className="main-content">
-    <div className="topbar"><div className="topbar-left"><img src={logoUrl} alt="UAQ" className="topbar-logo"/><div className="topbar-breadcrumb"><button className="back-link" onClick={()=>navigate(`/clase/${id}`)}>← {clsName}</button><span className="page-title">Periodos</span></div></div></div>
+  return(<div className="app-shell"><Sidebar open={menuOpen} onClose={()=>setMenuOpen(false)}/><div className="main-content">
+    <div className="topbar"><div className="topbar-left"><MenuButton onClick={()=>setMenuOpen(true)}/><img src={logoUrl} alt="UAQ" className="topbar-logo"/><div className="topbar-breadcrumb"><button className="back-link" onClick={()=>navigate(`/clase/${id}`)}>← {clsName}</button><span className="page-title">Periodos</span></div></div></div>
     <div className="content" style={{maxWidth:720}}>
       <p style={{fontSize:13,color:'#888',marginBottom:20,lineHeight:1.6}}>Define fechas, modelo y ponderación de cada parcial. La suma debe ser <strong>100%</strong>.</p>
       {msg&&<div className="alert alert-success">{msg}</div>}

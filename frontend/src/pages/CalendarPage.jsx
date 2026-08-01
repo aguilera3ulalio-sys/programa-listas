@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api'
-import Sidebar from '../components/Sidebar'
+import Sidebar,{MenuButton} from '../components/Sidebar'
 import logoUrl from '../assets/logo.js'
 
 const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
@@ -179,7 +179,8 @@ function AddEventModal({ classes, onClose, onAdded, presetClass }) {
 }
 
 export default function CalendarPage() {
-  const { user } = useAuth()
+    const[menuOpen,setMenuOpen]=useState(false)
+const { user } = useAuth()
   const navigate = useNavigate()
   const [events, setEvents] = useState([])
   const [classes, setClasses] = useState([])
@@ -216,10 +217,10 @@ export default function CalendarPage() {
 
   return (
     <div className="app-shell">
-      <Sidebar />
+      <Sidebar open={menuOpen} onClose={()=>setMenuOpen(false)} />
       <div className="main-content">
         <div className="topbar">
-          <div className="topbar-left">
+          <div className="topbar-left"><MenuButton onClick={()=>setMenuOpen(true)}/>
             <img src={logoUrl} alt="UAQ" className="topbar-logo" />
             <div>
               <div className="page-title">Calendario</div>

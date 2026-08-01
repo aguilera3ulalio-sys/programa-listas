@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api'
-import Sidebar from '../components/Sidebar'
+import Sidebar,{MenuButton} from '../components/Sidebar'
 import logoUrl from '../assets/logo.js'
 
 const TRAIT_LABELS = {
@@ -11,7 +11,8 @@ const TRAIT_LABELS = {
 }
 
 export default function PendingPage() {
-  const { user } = useAuth()
+    const[menuOpen,setMenuOpen]=useState(false)
+const { user } = useAuth()
   const navigate = useNavigate()
   const [pending, setPending] = useState([])
   const [loading, setLoading] = useState(true)
@@ -46,10 +47,10 @@ export default function PendingPage() {
 
   return (
     <div className="app-shell">
-      <Sidebar />
+      <Sidebar open={menuOpen} onClose={()=>setMenuOpen(false)} />
       <div className="main-content">
         <div className="topbar">
-          <div className="topbar-left">
+          <div className="topbar-left"><MenuButton onClick={()=>setMenuOpen(true)}/>
             <img src={logoUrl} alt="UAQ" className="topbar-logo" />
             <div>
               <div className="page-title">Pendientes</div>
