@@ -3,6 +3,7 @@ import{useNavigate}from'react-router-dom'
 import{useAuth}from'../context/AuthContext'
 import{api}from'../api'
 import Sidebar,{MenuButton} from '../components/Sidebar'
+import{BooksIcon}from'../components/Icons'
 import logoUrl from'../assets/logo.js'
 const PlusIcon=()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 const TrashIcon=()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
@@ -220,7 +221,7 @@ const{user}=useAuth();const navigate=useNavigate()
       <div className="topbar"><div className="topbar-left"><MenuButton onClick={()=>setMenuOpen(true)}/><img src={logoUrl} alt="UAQ" className="topbar-logo"/><div><div className="page-title">Mis clases</div><div className="page-subtitle">{user.name} · Facultad de Informática</div></div></div></div>
       <div className="content">
         {loading?<div className="loading"><div className="spinner"/>Cargando...</div>
-        :classes.length===0?<div className="empty-state"><div className="empty-icon">📚</div><h3>No tienes clases todavía</h3><p>Crea tu primera clase para comenzar.</p><button className="btn btn-primary" onClick={()=>setShowAdd(true)}><PlusIcon/>Añadir clase</button></div>
+        :classes.length===0?<div className="empty-state"><div className="empty-icon"><BooksIcon/></div><h3>No tienes clases todavía</h3><p>Crea tu primera clase para comenzar.</p><button className="btn btn-primary" onClick={()=>setShowAdd(true)}><PlusIcon/>Añadir clase</button></div>
         :<div className="card-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:14}}>{classes.map(c=><ClassCard key={c.id} cls={c} onDelete={setToDel} onEdit={setToEdit} onClick={()=>navigate(`/clase/${c.id}`)}/>)}</div>}
       </div>
       {classes.length>0&&<div className="bottom-bar" style={{justifyContent:'center'}}><button className="btn btn-primary" onClick={()=>setShowAdd(true)}><PlusIcon/>Añadir clase</button></div>}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api'
 import Sidebar,{MenuButton} from '../components/Sidebar'
+import{CheckCircleIcon}from'../components/Icons'
 import logoUrl from '../assets/logo.js'
 
 const TRAIT_LABELS = {
@@ -69,7 +70,7 @@ const { user } = useAuth()
             <div className="loading"><div className="spinner" />Cargando...</div>
           ) : pending.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon" style={{ fontSize: 28 }}>✓</div>
+              <div className="empty-icon"><CheckCircleIcon/></div>
               <h3>Todo al día</h3>
               <p>No hay evidencias con calificaciones pendientes.</p>
             </div>

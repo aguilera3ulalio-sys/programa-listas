@@ -2,6 +2,7 @@ import{useState,useEffect}from'react'
 import{useParams,useNavigate}from'react-router-dom'
 import{api}from'../api'
 import Sidebar,{MenuButton} from '../components/Sidebar'
+import{CheckIcon}from'../components/Icons'
 import logoUrl from'../assets/logo.js'
 const PlusIcon=()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 const TrashIcon=()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
@@ -42,7 +43,7 @@ const{id}=useParams();const navigate=useNavigate()
         <div style={{display:'flex',alignItems:'center',gap:14,padding:'10px 16px',borderRadius:8,marginBottom:16,background:valid?'#f0fdf4':'#fef2f2',border:`1px solid ${valid?'#86efac':'#fca5a5'}`}}>
           <span style={{fontSize:13,fontWeight:600,color:valid?'#15803d':'#991b1b'}}>Total: {tot.toFixed(1)}%</span>
           {!valid&&<span style={{fontSize:12,color:'#991b1b'}}>{tot>100?`Excede ${(tot-100).toFixed(1)}%`:`Faltan ${(100-tot).toFixed(1)}%`}</span>}
-          {valid&&<span style={{fontSize:12,color:'#15803d'}}>✓ Correcto</span>}
+          {valid&&<span style={{fontSize:12,color:'#15803d',display:'inline-flex',alignItems:'center',gap:4}}><CheckIcon size={12}/>Correcto</span>}
         </div>
         <div style={{display:'flex',gap:8,justifyContent:'space-between',alignItems:'center'}}>
           <button className="btn" onClick={addPeriod} disabled={periods.length>=5}><PlusIcon/> Agregar parcial</button>
