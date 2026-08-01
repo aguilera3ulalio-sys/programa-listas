@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs')
 const crypto = require('crypto')
 
 if (!process.env.DATABASE_URL) {
-  console.error('❌ Falta DATABASE_URL. Copia backend/.env.example a backend/.env y pon tu cadena de Neon.')
+  console.error('Falta DATABASE_URL. Copia backend/.env.example a backend/.env y pon tu cadena de Neon.')
   process.exit(1)
 }
 
@@ -112,9 +112,9 @@ async function init() {
     const hash = bcrypt.hashSync('0000', 10)
     const code = genRecoveryCode()
     await run('INSERT INTO users(employee_number,nip,name,recovery_code) VALUES($1,$2,$3,$4)', ['12345', hash, 'Francisco Paulín', code])
-    console.log(`🔑 Usuario demo creado — Clave 12345, NIP 0000. Código de recuperación: ${code}`)
+    console.log(`Usuario demo creado - Clave 12345, NIP 0000. Codigo de recuperacion: ${code}`)
   }
-  console.log('✅ Esquema PostgreSQL listo.')
+  console.log('Esquema PostgreSQL listo.')
 }
 
 module.exports = { pool, query, get, all, run, init, genRecoveryCode }

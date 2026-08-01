@@ -1,4 +1,6 @@
-const BASE='/api'
+// In production VITE_API_URL points at the deployed backend.
+// Left empty in development so Vite's proxy handles /api locally.
+const BASE=(import.meta.env.VITE_API_URL||'')+'/api'
 async function req(method,path,body){const opts={method,headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const res=await fetch(BASE+path,opts);const data=await res.json();if(!res.ok)throw new Error(data.error||'Error en el servidor');return data}
 export const api={
   login:(e,n)=>req('POST','/auth/login',{employee_number:e,nip:n}),
