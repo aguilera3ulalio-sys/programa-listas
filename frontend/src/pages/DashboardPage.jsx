@@ -111,7 +111,21 @@ function DeleteModal({cls,onClose,onDeleted}){
   const submit=async e=>{e.preventDefault();setLoading(true);try{await api.deleteClass(cls.id,user.id,nip);onDeleted(cls.id);onClose()}catch(err){setError(err.message)}finally{setLoading(false)}}
   return(<div className="modal-overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
     <h2 className="modal-title" style={{color:'#991b1b'}}>Eliminar clase</h2>
-    <p style={{fontSize:13,color:'#555',marginBottom:12}}>¿Eliminar <strong>{cls.name}</strong>? No se puede deshacer.</p>
+    <p style={{fontSize:13,color:'#555',marginBottom:10}}>¿Eliminar definitivamente <strong>{cls.name}</strong> con los siguientes datos?</p>
+    <div style={{background:'#f5f5f8',borderRadius:8,padding:'10px 14px',marginBottom:12}}>
+      {(cls.details||[]).length>0
+        ?<ul style={{margin:0,paddingLeft:16}}>
+           {cls.details.map((d,i)=><li key={i} style={{fontSize:12,color:'#555',marginBottom:2}}>{d}</li>)}
+         </ul>
+        :<span style={{fontSize:12,color:'#888'}}>Sin datos registrados</span>}
+      {[cls.highlight_field1,cls.highlight_field2,cls.highlight_field3].filter(Boolean).length>0&&(
+        <div style={{marginTop:8,display:'flex',flexWrap:'wrap',gap:4}}>
+          {[cls.highlight_field1,cls.highlight_field2,cls.highlight_field3].filter(Boolean).map((h,i)=>
+            <span key={i} className="badge" style={{background:'#fff',color:'#555',border:'1px solid #e0e0e8'}}>{h}</span>)}
+        </div>
+      )}
+    </div>
+    <p style={{fontSize:12,color:'#991b1b',marginBottom:12}}>Se perderan alumnos, calificaciones y asistencias. No se puede deshacer.</p>
     {error&&<div className="alert alert-error">{error}</div>}
     <form onSubmit={submit}>
       <div className="form-group"><label className="form-label">NIP para confirmar</label><input className="form-input" type="password" placeholder="NIP" value={nip} onChange={e=>setNip(e.target.value)} required autoFocus/></div>

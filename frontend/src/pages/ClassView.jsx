@@ -12,72 +12,275 @@ const TrashIcon=()=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" 
 const EditIcon=()=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 const dn=n=>n.split(' ').slice(0,2).join(' ')
 function AddStudentModal({classId,onClose,onAdded}){const[name,setName]=useState('');const[loading,setLoading]=useState(false);const[error,setError]=useState('');const submit=async e=>{e.preventDefault();if(!name.trim())return;setLoading(true);try{const s=await api.addStudent(classId,name.trim());onAdded(s);setName('')}catch(err){setError(err.message)}finally{setLoading(false)}};return(<div className="modal-overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}><h2 className="modal-title">Añadiendo alumno</h2><p style={{fontSize:12,color:'#888',marginBottom:14}}>Solo se muestran las dos primeras palabras.</p>{error&&<div className="alert alert-error">{error}</div>}<form onSubmit={submit}><div className="form-group"><label className="form-label">Nombre del alumno</label><input className="form-input" placeholder="Ej. Favio Jardínez Montiel" value={name} onChange={e=>setName(e.target.value)} autoFocus/></div><div className="modal-actions"><button type="button" className="btn" onClick={onClose}>Cancelar</button><button type="submit" className="btn btn-primary" disabled={loading}>{loading?'Agregando...':'Aceptar'}</button></div></form></div></div>)}
-function EditStudentsModal({students,onClose,onUpdated,onDeleted}){const{user}=useAuth();const[editing,setEditing]=useState(null);const[editName,setEditName]=useState('');const[delConfirm,setDelConfirm]=useState(null);const[nip,setNip]=useState('');const[loading,setLoading]=useState(false);const[error,setError]=useState('');const saveEdit=async id=>{try{const u=await api.updateStudent(id,editName.trim());onUpdated(u);setEditing(null)}catch(err){setError(err.message)}};const handleDelete=async e=>{e.preventDefault();setLoading(true);try{await api.deleteStudent(delConfirm.id,user.id,nip);onDeleted(delConfirm.id);setDelConfirm(null);setNip('')}catch(err){setError(err.message)}finally{setLoading(false)}};return(<div className="modal-overlay" onClick={onClose}><div className="modal modal-lg" onClick={e=>e.stopPropagation()}><h2 className="modal-title">Editando alumnos</h2>{error&&<div className="alert alert-error">{error}</div>}{delConfirm?(<form onSubmit={handleDelete}><p style={{fontSize:13,color:'#555',marginBottom:12}}>¿Eliminar a <strong>{dn(delConfirm.full_name)}</strong>?</p><div className="form-group"><label className="form-label">NIP</label><input className="form-input" type="password" placeholder="NIP" value={nip} onChange={e=>setNip(e.target.value)} autoFocus required/></div><div className="modal-actions"><button type="button" className="btn" onClick={()=>setDelConfirm(null)}>Cancelar</button><button type="submit" className="btn btn-danger" disabled={loading}>{loading?'Eliminando...':'Eliminar'}</button></div></form>):(<><div style={{maxHeight:360,overflowY:'auto'}}>{students.map(s=>(<div key={s.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid #f0f0f4'}}>{editing===s.id?<input className="form-input" value={editName} onChange={e=>setEditName(e.target.value)} style={{flex:1}} autoFocus onKeyDown={e=>e.key==='Enter'&&saveEdit(s.id)}/>:<span style={{flex:1,fontSize:13}}>{dn(s.full_name)}</span>}{editing===s.id?<button className="btn btn-sm btn-primary" onClick={()=>saveEdit(s.id)}>Guardar</button>:<button className="btn-icon" onClick={()=>{setEditing(s.id);setEditName(s.full_name);setError('')}}><EditIcon/></button>}<button className="btn-icon danger" onClick={()=>setDelConfirm(s)}><TrashIcon/></button></div>))}</div><div className="modal-actions"><button className="btn btn-primary" onClick={onClose}>Cerrar</button></div></>)}</div></div>)}
-function AddEvidenceModal({period,models,onClose,onAdded}){const[loading,setLoading]=useState(false);const model=models.find(m=>m.id===period.model_id)||models[0];const available=model?model.traits.filter(t=>t.weight>0).map(t=>t.trait_type):Object.keys(TRAITS);const handleAdd=async t=>{setLoading(true);try{const ev=await api.addEvidence({period_id:period.id,trait_type:t});onAdded(ev);onClose()}catch(err){console.error(err)}finally{setLoading(false)}};return(<div className="modal-overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}><h2 className="modal-title">Agregar evidencia</h2><p style={{fontSize:12,color:'#888',marginBottom:14}}>¿Qué tipo deseas agregar?</p><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>{available.map(t=><button key={t} className="btn" style={{padding:12,borderRadius:10,justifyContent:'center'}} disabled={loading} onClick={()=>handleAdd(t)}>{TRAITS[t]||t}</button>)}</div>{available.length===0&&<p style={{fontSize:12,color:'#888',textAlign:'center',padding:16}}>Sin rasgos configurados.</p>}<div className="modal-actions"><button className="btn" onClick={onClose}>Cancelar</button></div></div></div>)}
-function GeneralTab({students,periods,allEvidences}){if(students.length===0)return<div className="empty-state"><div className="empty-icon"><UsersIcon/></div><h3>No hay alumnos</h3></div>;const calcP=(sid,pid)=>{const evs=allEvidences[pid]||[];if(!evs.length)return null;let s=0,c=0;evs.forEach(ev=>{const g=(ev.grades||{})[sid];if(g!=null){s+=g;c++}});return c?Math.round(s/c):null};const calcF=sid=>{let ws=0,tw=0;periods.forEach(p=>{const g=calcP(sid,p.id);if(g!=null){ws+=g*p.weight;tw+=p.weight}});return tw?Math.round(ws/tw):null};return(<div className="table-wrap"><table className="data-table" style={{minWidth:700}}><thead><tr><th rowSpan={2} style={{minWidth:130}}>Alumno</th>{periods.map(p=>{const evs=allEvidences[p.id]||[];return<th key={p.id} colSpan={evs.length+1} className="th-period">{p.name}</th>})}<th rowSpan={2} className="th-dark">Final</th></tr><tr>{periods.map(p=>{const evs=allEvidences[p.id]||[];return[...evs.map(ev=><th key={ev.id} className="num">{TRAITS[ev.trait_type]||ev.trait_type}</th>),<th key={`c${p.id}`} className="td-clf" style={{textAlign:'center',fontSize:10}}>Clf</th>]})}</tr></thead><tbody>{students.map(s=>{const fin=calcF(s.id);return(<tr key={s.id}><td>{dn(s.full_name)}</td>{periods.map(p=>{const evs=allEvidences[p.id]||[];const clf=calcP(s.id,p.id);return[...evs.map(ev=>{const g=(ev.grades||{})[s.id];return<td key={ev.id} className="num">{g??'—'}</td>}),<td key={`c${p.id}`} className="clf td-clf">{clf??'—'}</td>]})}<td className="td-final">{fin??'—'}</td></tr>)})}</tbody></table></div>)}
-function AttendanceTab({classId,students,periods}){const[activePeriod,setActivePeriod]=useState(0);const[days,setDays]=useState([]);const[records,setRecords]=useState({});const[loading,setLoading]=useState(false);const[saving,setSaving]=useState(false);const[dirty,setDirty]=useState(false);const[showAdd,setShowAdd]=useState(false);const[newDay,setNewDay]=useState({day:'',month:''});const period=periods[activePeriod];useEffect(()=>{if(!period)return;setLoading(true);api.getAttendance(classId,period.id).then(d=>{setDays(d.days||[]);setRecords(d.records||{})}).catch(console.error).finally(()=>setLoading(false))},[classId,period?.id]);const toggle=(dayId,sid)=>{setRecords(p=>{const k=`${dayId}_${sid}`;return{...p,[k]:p[k]?0:1}});setDirty(true)};const get=(dayId,sid)=>records[`${dayId}_${sid}`]||0;const pct=sid=>{if(!days.length)return null;const p=days.filter(d=>get(d.id,sid)===1).length;return Math.round(p/days.length*100)};const save=async()=>{setSaving(true);try{await api.saveAttendance({period_id:period.id,records});setDirty(false)}catch(err){console.error(err)}finally{setSaving(false)}};const addDay=async()=>{if(!newDay.day||!newDay.month)return;try{const u=await api.saveAttendance({period_id:period.id,new_day:newDay,records});setDays(u.days||days);setRecords(u.records||records);setShowAdd(false);setNewDay({day:'',month:''})}catch(err){console.error(err)}};if(!period)return<div className="loading">No hay periodos</div>;return(<><div style={{display:'flex',gap:6,padding:'10px 20px',background:'#fff',borderBottom:'1px solid #e0e0e8'}}>{periods.map((p,i)=><button key={p.id} className={`pill ${activePeriod===i?'active':''}`} onClick={()=>setActivePeriod(i)}>{p.name}</button>)}</div><div className="content">{loading?<div className="loading"><div className="spinner"/>Cargando...</div>:(<div className="table-wrap"><table className="data-table" style={{minWidth:480}}><thead><tr><th style={{minWidth:130}}>Alumno</th>{days.map(d=><th key={d.id} className="num">{d.day}<br/><small style={{fontWeight:400,textTransform:'none'}}>{d.month}</small></th>)}{days.length===0&&<th className="num">Sin días</th>}<th style={{textAlign:'center',background:'#eeeef2',color:'#555'}}>%Asis</th></tr></thead><tbody>{students.map(s=>{const p=pct(s.id);return<tr key={s.id}><td>{dn(s.full_name)}</td>{days.map(d=>{const v=get(d.id,s.id);return<td key={d.id} className="num" style={{cursor:'pointer'}} onClick={()=>toggle(d.id,s.id)}><span className={v?'present-badge':'absent-badge'}>{v}</span></td>})}{days.length===0&&<td className="num">—</td>}<td style={{textAlign:'center',fontWeight:600,color:p===null?'#aaa':p>=70?'#15803d':'#991b1b'}}>{p===null?'—':`${p}%`}</td></tr>})}</tbody></table></div>)}{showAdd&&<div style={{display:'flex',gap:10,alignItems:'flex-end',marginTop:16,background:'#f5f5f8',padding:14,borderRadius:10}}><div><label className="form-label">Día</label><input className="form-input" style={{width:70}} placeholder="18" value={newDay.day} onChange={e=>setNewDay(p=>({...p,day:e.target.value}))}/></div><div><label className="form-label">Mes</label><input className="form-input" style={{width:90}} placeholder="Nov" value={newDay.month} onChange={e=>setNewDay(p=>({...p,month:e.target.value}))}/></div><button className="btn btn-primary" onClick={addDay}>Agregar</button><button className="btn" onClick={()=>setShowAdd(false)}>Cancelar</button></div>}</div><div className="bottom-bar"><button className="btn btn-primary" onClick={()=>setShowAdd(true)}><PlusIcon/> Agregar día</button><button className="btn ml-auto" onClick={save} disabled={saving||!dirty}><SaveIcon/>{saving?'Guardando...':'Guardar'}</button></div></>)}
-function EvidencesTab({classId,students,periods,models,onEvidencesChange,initialPeriodId}){const getIdx=()=>{if(initialPeriodId){const i=periods.findIndex(p=>p.id===parseInt(initialPeriodId));return i>=0?i:0}return 0};const[activePeriod,setActivePeriod]=useState(0);const[evidences,setEvidences]=useState([]);const[grades,setGrades]=useState({});const[loading,setLoading]=useState(false);const[saving,setSaving]=useState(false);const[dirty,setDirty]=useState(false);const[showAdd,setShowAdd]=useState(false);const period=periods[activePeriod];useEffect(()=>{if(initialPeriodId&&periods.length>0){const i=periods.findIndex(p=>p.id===parseInt(initialPeriodId));if(i>=0)setActivePeriod(i)}},[initialPeriodId,periods.length]);const load=useCallback(()=>{if(!period)return;setLoading(true);api.getEvidences(classId,period.id).then(d=>{setEvidences(d.evidences||[]);setGrades(d.grades||{});onEvidencesChange&&onEvidencesChange(period.id,d.evidences||[],d.grades||{})}).catch(console.error).finally(()=>setLoading(false))},[classId,period?.id]);useEffect(()=>{load()},[load]);const updateGrade=(evId,sid,val)=>{setGrades(p=>({...p,[`${evId}_${sid}`]:val===''?null:parseFloat(val)}));setDirty(true)};const getGrade=(evId,sid)=>{const v=grades[`${evId}_${sid}`];return v===null||v===undefined?'':v};const save=async()=>{setSaving(true);try{await Promise.all(evidences.map(ev=>api.saveGrades(ev.id,students.map(s=>({student_id:s.id,grade:grades[`${ev.id}_${s.id}`]??null})))));setDirty(false)}catch(err){console.error(err)}finally{setSaving(false)}};const delEv=async evId=>{if(!confirm('¿Eliminar esta evidencia?'))return;await api.deleteEvidence(evId);load()};const calcClf=sid=>{if(!evidences.length)return null;let s=0,c=0;evidences.forEach(ev=>{const g=grades[`${ev.id}_${sid}`];if(g!=null){s+=g;c++}});return c?Math.round(s/c):null};if(!period)return<div className="loading">No hay periodos</div>;return(<><div style={{display:'flex',gap:6,padding:'10px 20px',background:'#fff',borderBottom:'1px solid #e0e0e8'}}>{periods.map((p,i)=><button key={p.id} className={`pill ${activePeriod===i?'active':''}`} onClick={()=>setActivePeriod(i)}>{p.name}</button>)}</div><div className="content">{loading?<div className="loading"><div className="spinner"/>Cargando...</div>:(<div className="table-wrap"><table className="data-table"><thead><tr><th style={{minWidth:130}}>Alumno</th>{evidences.map((ev,i)=><th key={ev.id} className="num"><div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>{TRAITS[ev.trait_type]||ev.trait_type} {i+1}<button className="btn-icon" style={{width:18,height:18,fontSize:10}} onClick={()=>delEv(ev.id)}><CloseIcon size={10}/></button></div></th>)}{evidences.length===0&&<th className="num">Sin evidencias</th>}<th className="td-clf" style={{textAlign:'center',fontSize:10}}>Clf. Parcial</th></tr></thead><tbody>{students.map(s=>{const clf=calcClf(s.id);return(<tr key={s.id}><td>{dn(s.full_name)}</td>{evidences.map(ev=><td key={ev.id} className="num"><input type="number" min="0" max="100" value={getGrade(ev.id,s.id)} onChange={e=>updateGrade(ev.id,s.id,e.target.value)} style={{width:52,padding:'3px 6px',border:'1px solid #e0e0e8',borderRadius:5,textAlign:'center',fontSize:12,background:'transparent'}}/></td>)}{evidences.length===0&&<td className="num">—</td>}<td className="clf td-clf">{clf??'—'}</td></tr>)})}</tbody></table></div>)}</div><div className="bottom-bar"><button className="btn btn-primary" onClick={()=>setShowAdd(true)}><PlusIcon/> Agregar evidencia</button><button className="btn ml-auto" onClick={save} disabled={saving||!dirty}><SaveIcon/>{saving?'Guardando...':'Guardar'}</button></div>{showAdd&&period&&<AddEvidenceModal period={period} models={models} onClose={()=>setShowAdd(false)} onAdded={()=>{setShowAdd(false);load()}}/>}</>)}
-function PerStudentTab({students,periods,allEvidences}){const[selected,setSelected]=useState([]);const[viewing,setViewing]=useState(false);const toggle=id=>setSelected(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);const calcP=(sid,pid)=>{const evs=allEvidences[pid]||[];if(!evs.length)return null;let s=0,c=0;evs.forEach(ev=>{const g=(ev.grades||{})[sid];if(g!=null){s+=g;c++}});return c?Math.round(s/c):null};const calcF=sid=>{let ws=0,tw=0;periods.forEach(p=>{const g=calcP(sid,p.id);if(g!=null){ws+=g*p.weight;tw+=p.weight}});return tw?Math.round(ws/tw):null};const sel=students.filter(s=>selected.includes(s.id));if(viewing&&sel.length>0)return(<div className="content"><div style={{fontSize:13,fontWeight:600,marginBottom:12}}>{sel.map(s=>dn(s.full_name)).join(' · ')}</div><div className="table-wrap"><table className="data-table" style={{minWidth:480,marginBottom:20}}><thead><tr><th>Alumno</th>{periods.map(p=><th key={p.id} className="th-period">{p.name}</th>)}<th className="th-dark">Final</th></tr></thead><tbody>{sel.map(s=>{const fin=calcF(s.id);return<tr key={s.id}><td>{dn(s.full_name)}</td>{periods.map(p=>{const g=calcP(s.id,p.id);return<td key={p.id} className="clf td-clf">{g??'—'}</td>})}<td className="td-final">{fin??'—'}</td></tr>})}</tbody></table></div><button className="btn" onClick={()=>setViewing(false)}>← Regresar</button></div>);return(<div className="content"><p style={{fontSize:13,color:'#888',marginBottom:12}}>Selecciona los alumnos:</p><div style={{marginBottom:20}}>{students.map(s=><button key={s.id} className={`student-tag ${selected.includes(s.id)?'selected':''}`} onClick={()=>toggle(s.id)}>{dn(s.full_name)}</button>)}</div><div style={{display:'flex',gap:8}}><button className="btn btn-primary" disabled={selected.length===0} onClick={()=>setViewing(true)}>Revisar</button>{selected.length>0&&<button className="btn" onClick={()=>setSelected([])}>Limpiar</button>}</div></div>)}
-function LinksBar({links,onEdit}){
-  const has=links&&links.length>0
-  return(
-    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',padding:'10px 20px',background:'#fff',borderBottom:'1px solid #e0e0e8'}}>
-      {has?links.map(l=>(
-        <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
-           style={{display:'inline-flex',alignItems:'center',gap:6,padding:'5px 11px',borderRadius:16,
-                   border:'1px solid #e0e0e8',background:'#f5f5f8',color:'#1a1a26',
-                   fontSize:12,fontWeight:500,textDecoration:'none'}}>
-          <LinkIcon size={12}/>{l.label}<ExternalIcon size={10}/>
-        </a>
-      )):<span style={{fontSize:12,color:'#aaa'}}>Sin enlaces</span>}
-      <button className="btn btn-sm" style={{marginLeft:'auto'}} onClick={onEdit}>
-        <LinkIcon size={12}/> {has?'Editar enlaces':'Agregar enlaces'}
-      </button>
-    </div>
-  )
-}
-
-function EditLinksModal({cls,onClose,onSaved}){
-  const init=(cls.links||[]).map(l=>({label:l.label,url:l.url}))
-  while(init.length<2)init.push({label:'',url:''})
-  const[rows,setRows]=useState(init.slice(0,2))
+function EditStudentsModal({students,onClose,onUpdated,onDeleted}){
+  const{user}=useAuth()
+  const[editing,setEditing]=useState(null);const[editName,setEditName]=useState('')
+  const[picked,setPicked]=useState([])            // multi-select for bulk delete
+  const[confirming,setConfirming]=useState(null)  // array of students pending delete
+  const[nip,setNip]=useState('')
   const[loading,setLoading]=useState(false);const[error,setError]=useState('')
-  const upd=(i,f,v)=>setRows(p=>p.map((r,j)=>j===i?{...r,[f]:v}:r))
-  const submit=async e=>{
+
+  const togglePick=id=>setPicked(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id])
+  const allPicked=students.length>0&&picked.length===students.length
+  const toggleAll=()=>setPicked(allPicked?[]:students.map(s=>s.id))
+
+  const saveEdit=async id=>{
+    try{const u=await api.updateStudent(id,editName.trim());onUpdated(u);setEditing(null)}
+    catch(err){setError(err.message)}
+  }
+
+  const handleDelete=async e=>{
     e.preventDefault();setError('');setLoading(true)
     try{
-      const links=rows.filter(r=>r.label.trim()||r.url.trim())
-      const saved=await api.saveClassLinks(cls.id,links)
-      onSaved(saved);onClose()
+      for(const st of confirming){
+        await api.deleteStudent(st.id,user.id,nip)
+        onDeleted(st.id)
+      }
+      setConfirming(null);setNip('');setPicked([])
     }catch(err){setError(err.message)}finally{setLoading(false)}
   }
-  return(<div className="modal-overlay" style={{alignItems:'flex-start',paddingTop:40}} onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
-    <h2 className="modal-title">Enlaces de la clase</h2>
-    <p style={{fontSize:12,color:'#888',marginBottom:16,lineHeight:1.5}}>
-      Accesos directos a Classroom, Canvas, Drive o lo que uses. Maximo 2.
-    </p>
+
+  return(<div className="modal-overlay" onClick={onClose}><div className="modal modal-lg" onClick={e=>e.stopPropagation()}>
+    <h2 className="modal-title">Editando alumnos</h2>
     {error&&<div className="alert alert-error">{error}</div>}
-    <form onSubmit={submit}>
-      {rows.map((r,i)=>(
-        <div key={i} style={{marginBottom:14,paddingBottom:14,borderBottom:i===0?'1px solid #f0f0f4':'none'}}>
-          <div className="form-group" style={{marginBottom:8}}>
-            <label className="form-label">Nombre {i+1}</label>
-            <input className="form-input" placeholder="Ej. Classroom T1 Grupo 32" value={r.label}
-                   onChange={e=>upd(i,'label',e.target.value)} maxLength={40}/>
-          </div>
-          <div className="form-group" style={{marginBottom:0}}>
-            <label className="form-label">Direccion</label>
-            <input className="form-input" placeholder="classroom.google.com/..." value={r.url}
-                   onChange={e=>upd(i,'url',e.target.value)}/>
-          </div>
+    {confirming?(
+      <form onSubmit={handleDelete}>
+        <p style={{fontSize:13,color:'#555',marginBottom:12}}>
+          {confirming.length===1
+            ?<>¿Eliminar a <strong>{dn(confirming[0].full_name)}</strong>?</>
+            :<>¿Eliminar <strong>{confirming.length} alumnos</strong>? ({confirming.map(s=>dn(s.full_name)).join(', ')})</>}
+          <br/>Se perderan sus calificaciones y asistencias.
+        </p>
+        <div className="form-group">
+          <label className="form-label">NIP para confirmar</label>
+          <input className="form-input" type="password" placeholder="NIP" value={nip} onChange={e=>setNip(e.target.value)} autoFocus required/>
         </div>
-      ))}
-      <div className="modal-actions">
-        <button type="button" className="btn" onClick={onClose}>Cancelar</button>
-        <button type="submit" className="btn btn-primary" disabled={loading}>{loading?'Guardando...':'Guardar'}</button>
+        <div className="modal-actions">
+          <button type="button" className="btn" onClick={()=>{setConfirming(null);setNip('')}}>Cancelar</button>
+          <button type="submit" className="btn btn-danger" disabled={loading}>{loading?'Eliminando...':'Eliminar'}</button>
+        </div>
+      </form>
+    ):(<>
+      {students.length>0&&(
+        <div style={{display:'flex',alignItems:'center',gap:8,paddingBottom:8,borderBottom:'1px solid #e0e0e8',marginBottom:4}}>
+          <input type="checkbox" checked={allPicked} onChange={toggleAll} style={{cursor:'pointer'}} id="selall"/>
+          <label htmlFor="selall" style={{fontSize:12,color:'#888',cursor:'pointer',flex:1}}>
+            {picked.length>0?`${picked.length} seleccionado${picked.length>1?'s':''}`:'Seleccionar todos'}
+          </label>
+          {picked.length>0&&(
+            <button className="btn btn-danger btn-sm"
+              onClick={()=>setConfirming(students.filter(s=>picked.includes(s.id)))}>
+              <TrashIcon/> Eliminar ({picked.length})
+            </button>
+          )}
+        </div>
+      )}
+      <div style={{maxHeight:340,overflowY:'auto'}}>
+        {students.map(s=>(
+          <div key={s.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid #f0f0f4'}}>
+            <input type="checkbox" checked={picked.includes(s.id)} onChange={()=>togglePick(s.id)} style={{cursor:'pointer'}}/>
+            {editing===s.id
+              ?<input className="form-input" value={editName} onChange={e=>setEditName(e.target.value)} style={{flex:1}} autoFocus onKeyDown={e=>e.key==='Enter'&&saveEdit(s.id)}/>
+              :<span style={{flex:1,fontSize:13}}>{dn(s.full_name)}</span>}
+            {editing===s.id
+              ?<button className="btn btn-sm btn-primary" onClick={()=>saveEdit(s.id)}>Guardar</button>
+              :<button className="btn-icon" onClick={()=>{setEditing(s.id);setEditName(s.full_name);setError('')}}><EditIcon/></button>}
+            <button className="btn-icon danger" onClick={()=>setConfirming([s])}><TrashIcon/></button>
+          </div>
+        ))}
       </div>
-    </form>
+      <div className="modal-actions"><button className="btn btn-primary" onClick={onClose}>Cerrar</button></div>
+    </>)}
   </div></div>)
+}
+function AddEvidenceModal({period,models,onClose,onAdded}){const[loading,setLoading]=useState(false);const model=models.find(m=>m.id===period.model_id)||models[0];const available=model?model.traits.filter(t=>t.weight>0).map(t=>t.trait_type):Object.keys(TRAITS);const handleAdd=async t=>{setLoading(true);try{const ev=await api.addEvidence({period_id:period.id,trait_type:t});onAdded(ev);onClose()}catch(err){console.error(err)}finally{setLoading(false)}};return(<div className="modal-overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}><h2 className="modal-title">Agregar evidencia</h2><p style={{fontSize:12,color:'#888',marginBottom:14}}>¿Qué tipo deseas agregar?</p><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>{available.map(t=><button key={t} className="btn" style={{padding:12,borderRadius:10,justifyContent:'center'}} disabled={loading} onClick={()=>handleAdd(t)}>{TRAITS[t]||t}</button>)}</div>{available.length===0&&<p style={{fontSize:12,color:'#888',textAlign:'center',padding:16}}>Sin rasgos configurados.</p>}<div className="modal-actions"><button className="btn" onClick={onClose}>Cancelar</button></div></div></div>)}
+function GeneralTab({students,periods,allEvidences}){if(students.length===0)return<div className="empty-state"><div className="empty-icon"><UsersIcon/></div><h3>No hay alumnos</h3></div>;const calcP=(sid,pid)=>{const evs=allEvidences[pid]||[];if(!evs.length)return null;let s=0,c=0;evs.forEach(ev=>{const g=(ev.grades||{})[sid];if(g!=null){s+=g;c++}});return c?Math.round(s/c):null};const calcF=sid=>{let ws=0,tw=0;periods.forEach(p=>{const g=calcP(sid,p.id);if(g!=null){ws+=g*p.weight;tw+=p.weight}});return tw?Math.round(ws/tw):null};return(<div className="table-wrap"><table className="data-table" style={{minWidth:700}}><thead><tr><th rowSpan={2} style={{minWidth:130}}>Alumno</th>{periods.map(p=>{const evs=allEvidences[p.id]||[];return<th key={p.id} colSpan={evs.length+1} className="th-period">{p.name}</th>})}<th rowSpan={2} className="th-dark">Final</th></tr><tr>{periods.map(p=>{const evs=allEvidences[p.id]||[];return[...evs.map(ev=><th key={ev.id} className="num">{TRAITS[ev.trait_type]||ev.trait_type}</th>),<th key={`c${p.id}`} className="td-clf" style={{textAlign:'center',fontSize:10}}>Clf</th>]})}</tr></thead><tbody>{students.map(s=>{const fin=calcF(s.id);return(<tr key={s.id}><td>{dn(s.full_name)}</td>{periods.map(p=>{const evs=allEvidences[p.id]||[];const clf=calcP(s.id,p.id);return[...evs.map(ev=>{const g=(ev.grades||{})[s.id];return<td key={ev.id} className="num">{g??'—'}</td>}),<td key={`c${p.id}`} className="clf td-clf">{clf??'—'}</td>]})}<td className="td-final">{fin??'—'}</td></tr>)})}</tbody></table></div>)}
+function AttendanceTab({classId,students,periods}){
+  const[activePeriod,setActivePeriod]=useState(0)
+  const[days,setDays]=useState([]);const[records,setRecords]=useState({})
+  const[loading,setLoading]=useState(false);const[saving,setSaving]=useState(false);const[dirty,setDirty]=useState(false)
+  const[showAdd,setShowAdd]=useState(false);const[newDay,setNewDay]=useState({day:'',month:''})
+  const[insertAfter,setInsertAfter]=useState('')      // '' = al final
+  const[delMode,setDelMode]=useState(false)           // click a column header to remove it
+  const period=periods[activePeriod]
+
+  useEffect(()=>{if(!period)return;setLoading(true);api.getAttendance(classId,period.id).then(d=>{setDays(d.days||[]);setRecords(d.records||{})}).catch(console.error).finally(()=>setLoading(false))},[classId,period?.id])
+
+  const toggle=(dayId,sid)=>{if(delMode)return;setRecords(p=>{const k=`${dayId}_${sid}`;return{...p,[k]:p[k]?0:1}});setDirty(true)}
+  const get=(dayId,sid)=>records[`${dayId}_${sid}`]||0
+  const pct=sid=>{if(!days.length)return null;const p=days.filter(d=>get(d.id,sid)===1).length;return Math.round(p/days.length*100)}
+  const save=async()=>{setSaving(true);try{await api.saveAttendance({period_id:period.id,records});setDirty(false)}catch(err){console.error(err)}finally{setSaving(false)}}
+
+  const addDay=async()=>{
+    if(!newDay.day||!newDay.month)return
+    try{
+      const payload={period_id:period.id,new_day:{...newDay,insert_after:insertAfter?parseInt(insertAfter):null},records}
+      const u=await api.saveAttendance(payload)
+      setDays(u.days||days);setRecords(u.records||records)
+      setShowAdd(false);setNewDay({day:'',month:''});setInsertAfter('')
+    }catch(err){console.error(err)}
+  }
+
+  const removeDay=async dayId=>{
+    const d=days.find(x=>x.id===dayId)
+    if(!confirm(`¿Eliminar el día ${d?d.date_label:''}? Se perderan sus asistencias.`))return
+    try{
+      await api.deleteAttendanceDay(dayId)
+      setDays(p=>p.filter(x=>x.id!==dayId))
+      setRecords(p=>{const n={...p};Object.keys(n).forEach(k=>{if(k.startsWith(`${dayId}_`))delete n[k]});return n})
+      setDelMode(false)
+    }catch(err){console.error(err)}
+  }
+
+  if(!period)return<div className="loading">No hay periodos</div>
+  return(<>
+    <div style={{display:'flex',gap:6,padding:'10px 20px',background:'#fff',borderBottom:'1px solid #e0e0e8'}}>
+      {periods.map((p,i)=><button key={p.id} className={`pill ${activePeriod===i?'active':''}`} onClick={()=>setActivePeriod(i)}>{p.name}</button>)}
+    </div>
+    <div className="content">
+      {delMode&&days.length>0&&<div className="alert alert-error" style={{marginBottom:12}}>Selecciona el día que deseas eliminar (toca su encabezado).</div>}
+      {loading?<div className="loading"><div className="spinner"/>Cargando...</div>:(
+        <div className="table-wrap"><table className="data-table" style={{minWidth:480}}>
+          <thead><tr>
+            <th style={{minWidth:130}}>Alumno</th>
+            {days.map(d=>(
+              <th key={d.id} className="num"
+                  onClick={()=>delMode&&removeDay(d.id)}
+                  title={delMode?'Eliminar este día':''}
+                  style={delMode?{cursor:'pointer',background:'#fef2f2',color:'#991b1b',outline:'1px solid #fca5a5'}:{}}>
+                {d.day}<br/><small style={{fontWeight:400,textTransform:'none'}}>{d.month}</small>
+              </th>
+            ))}
+            {days.length===0&&<th className="num">Sin días</th>}
+            <th style={{textAlign:'center',background:'#eeeef2',color:'#555'}}>%Asis</th>
+          </tr></thead>
+          <tbody>{students.map(s=>{const p=pct(s.id);return(
+            <tr key={s.id}>
+              <td>{dn(s.full_name)}</td>
+              {days.map(d=>{const v=get(d.id,s.id);return(
+                <td key={d.id} className="num" style={{cursor:delMode?'default':'pointer'}} onClick={()=>toggle(d.id,s.id)}>
+                  <span className={v?'present-badge':'absent-badge'}>{v}</span>
+                </td>)})}
+              {days.length===0&&<td className="num">—</td>}
+              <td style={{textAlign:'center',fontWeight:600,color:p===null?'#aaa':p>=70?'#15803d':'#991b1b'}}>{p===null?'—':`${p}%`}</td>
+            </tr>)})}
+          </tbody>
+        </table></div>
+      )}
+      {showAdd&&(
+        <div style={{display:'flex',gap:10,alignItems:'flex-end',flexWrap:'wrap',marginTop:16,background:'#f5f5f8',padding:14,borderRadius:10}}>
+          <div><label className="form-label">Día</label><input className="form-input" style={{width:70}} placeholder="18" value={newDay.day} onChange={e=>setNewDay(p=>({...p,day:e.target.value}))}/></div>
+          <div><label className="form-label">Mes</label><input className="form-input" style={{width:90}} placeholder="Nov" value={newDay.month} onChange={e=>setNewDay(p=>({...p,month:e.target.value}))}/></div>
+          <div><label className="form-label">Posición</label>
+            <select className="form-select" style={{minWidth:170}} value={insertAfter} onChange={e=>setInsertAfter(e.target.value)}>
+              <option value="">Al final</option>
+              {days.map(d=><option key={d.id} value={d.id}>Después de {d.date_label}</option>)}
+            </select>
+          </div>
+          <button className="btn btn-primary" onClick={addDay}>Agregar</button>
+          <button className="btn" onClick={()=>{setShowAdd(false);setInsertAfter('')}}>Cancelar</button>
+        </div>
+      )}
+    </div>
+    <div className="bottom-bar">
+      <button className="btn btn-primary" onClick={()=>{setShowAdd(true);setDelMode(false)}}><PlusIcon/> Agregar día</button>
+      <button className={`btn ${delMode?'btn-danger':''}`} disabled={days.length===0} onClick={()=>{setDelMode(v=>!v);setShowAdd(false)}}>
+        <TrashIcon/> {delMode?'Cancelar':'Eliminar día'}
+      </button>
+      <button className="btn ml-auto" onClick={save} disabled={saving||!dirty}><SaveIcon/>{saving?'Guardando...':'Guardar'}</button>
+    </div>
+  </>)
+}
+function EvidencesTab({classId,students,periods,models,onEvidencesChange,initialPeriodId}){const getIdx=()=>{if(initialPeriodId){const i=periods.findIndex(p=>p.id===parseInt(initialPeriodId));return i>=0?i:0}return 0};const[activePeriod,setActivePeriod]=useState(0);const[evidences,setEvidences]=useState([]);const[grades,setGrades]=useState({});const[loading,setLoading]=useState(false);const[saving,setSaving]=useState(false);const[dirty,setDirty]=useState(false);const[showAdd,setShowAdd]=useState(false);const period=periods[activePeriod];useEffect(()=>{if(initialPeriodId&&periods.length>0){const i=periods.findIndex(p=>p.id===parseInt(initialPeriodId));if(i>=0)setActivePeriod(i)}},[initialPeriodId,periods.length]);const load=useCallback(()=>{if(!period)return;setLoading(true);api.getEvidences(classId,period.id).then(d=>{setEvidences(d.evidences||[]);setGrades(d.grades||{});onEvidencesChange&&onEvidencesChange(period.id,d.evidences||[],d.grades||{})}).catch(console.error).finally(()=>setLoading(false))},[classId,period?.id]);useEffect(()=>{load()},[load]);const updateGrade=(evId,sid,val)=>{setGrades(p=>({...p,[`${evId}_${sid}`]:val===''?null:parseFloat(val)}));setDirty(true)};const getGrade=(evId,sid)=>{const v=grades[`${evId}_${sid}`];return v===null||v===undefined?'':v};const save=async()=>{setSaving(true);try{await Promise.all(evidences.map(ev=>api.saveGrades(ev.id,students.map(s=>({student_id:s.id,grade:grades[`${ev.id}_${s.id}`]??null})))));setDirty(false)}catch(err){console.error(err)}finally{setSaving(false)}};const delEv=async evId=>{if(!confirm('¿Eliminar esta evidencia?'))return;await api.deleteEvidence(evId);load()};const calcClf=sid=>{if(!evidences.length)return null;let s=0,c=0;evidences.forEach(ev=>{const g=grades[`${ev.id}_${sid}`];if(g!=null){s+=g;c++}});return c?Math.round(s/c):null};if(!period)return<div className="loading">No hay periodos</div>;return(<><div style={{display:'flex',gap:6,padding:'10px 20px',background:'#fff',borderBottom:'1px solid #e0e0e8'}}>{periods.map((p,i)=><button key={p.id} className={`pill ${activePeriod===i?'active':''}`} onClick={()=>setActivePeriod(i)}>{p.name}</button>)}</div><div className="content">{loading?<div className="loading"><div className="spinner"/>Cargando...</div>:(<div className="table-wrap"><table className="data-table"><thead><tr><th style={{minWidth:130}}>Alumno</th>{evidences.map((ev,i)=><th key={ev.id} className="num"><div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>{TRAITS[ev.trait_type]||ev.trait_type} {i+1}<button className="btn-icon" style={{width:18,height:18,fontSize:10}} onClick={()=>delEv(ev.id)}><CloseIcon size={10}/></button></div></th>)}{evidences.length===0&&<th className="num">Sin evidencias</th>}<th className="td-clf" style={{textAlign:'center',fontSize:10}}>Clf. Parcial</th></tr></thead><tbody>{students.map(s=>{const clf=calcClf(s.id);return(<tr key={s.id}><td>{dn(s.full_name)}</td>{evidences.map(ev=><td key={ev.id} className="num"><input type="number" min="0" max="100" value={getGrade(ev.id,s.id)} onChange={e=>updateGrade(ev.id,s.id,e.target.value)} style={{width:52,padding:'3px 6px',border:'1px solid #e0e0e8',borderRadius:5,textAlign:'center',fontSize:12,background:'transparent'}}/></td>)}{evidences.length===0&&<td className="num">—</td>}<td className="clf td-clf">{clf??'—'}</td></tr>)})}</tbody></table></div>)}</div><div className="bottom-bar"><button className="btn btn-primary" onClick={()=>setShowAdd(true)}><PlusIcon/> Agregar evidencia</button><button className="btn ml-auto" onClick={save} disabled={saving||!dirty}><SaveIcon/>{saving?'Guardando...':'Guardar'}</button></div>{showAdd&&period&&<AddEvidenceModal period={period} models={models} onClose={()=>setShowAdd(false)} onAdded={()=>{setShowAdd(false);load()}}/>}</>)}
+function PerStudentTab({classId,students,periods,models,allEvidences,onEvidencesChange}){
+  const[selected,setSelected]=useState([]);const[viewing,setViewing]=useState(false)
+  const[periodIdx,setPeriodIdx]=useState(0)
+  const[evidences,setEvidences]=useState([]);const[grades,setGrades]=useState({})
+  const[loading,setLoading]=useState(false);const[saving,setSaving]=useState(false);const[dirty,setDirty]=useState(false)
+  const period=periods[periodIdx]
+  const toggle=id=>setSelected(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id])
+  const sel=students.filter(s=>selected.includes(s.id))
+
+  // Load the chosen period's evidences so grades can be edited here too.
+  useEffect(()=>{
+    if(!viewing||!period)return
+    setLoading(true)
+    api.getEvidences(classId,period.id).then(d=>{
+      setEvidences(d.evidences||[]);setGrades(d.grades||{});setDirty(false)
+      onEvidencesChange&&onEvidencesChange(period.id,d.evidences||[],d.grades||{})
+    }).catch(console.error).finally(()=>setLoading(false))
+  },[viewing,classId,period?.id])
+
+  const updateGrade=(evId,sid,val)=>{setGrades(p=>({...p,[`${evId}_${sid}`]:val===''?null:parseFloat(val)}));setDirty(true)}
+  const getGrade=(evId,sid)=>{const v=grades[`${evId}_${sid}`];return v===null||v===undefined?'':v}
+  const save=async()=>{
+    setSaving(true)
+    try{
+      await Promise.all(evidences.map(ev=>api.saveGrades(ev.id,sel.map(s=>({student_id:s.id,grade:grades[`${ev.id}_${s.id}`]??null})))))
+      setDirty(false)
+      onEvidencesChange&&onEvidencesChange(period.id,evidences,grades)
+    }catch(err){console.error(err)}finally{setSaving(false)}
+  }
+  const calcClf=sid=>{if(!evidences.length)return null;let t=0,c=0;evidences.forEach(ev=>{const g=grades[`${ev.id}_${sid}`];if(g!=null){t+=g;c++}});return c?Math.round(t/c):null}
+  const calcP=(sid,pid)=>{const evs=allEvidences[pid]||[];if(!evs.length)return null;let t=0,c=0;evs.forEach(ev=>{const g=(ev.grades||{})[sid];if(g!=null){t+=g;c++}});return c?Math.round(t/c):null}
+  const calcF=sid=>{let ws=0,tw=0;periods.forEach(p=>{const g=calcP(sid,p.id);if(g!=null){ws+=g*p.weight;tw+=p.weight}});return tw?Math.round(ws/tw):null}
+
+  if(viewing&&sel.length>0)return(<>
+    <div style={{display:'flex',gap:6,padding:'10px 20px',background:'#fff',borderBottom:'1px solid #e0e0e8',flexWrap:'wrap'}}>
+      {periods.map((p,i)=><button key={p.id} className={`pill ${periodIdx===i?'active':''}`} onClick={()=>setPeriodIdx(i)}>{p.name}</button>)}
+    </div>
+    <div className="content">
+      <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>{sel.map(s=>dn(s.full_name)).join(' · ')}</div>
+
+      <p style={{fontSize:11,color:'#888',marginBottom:6}}>Resumen por parcial</p>
+      <div className="table-wrap"><table className="data-table" style={{minWidth:420,marginBottom:22}}>
+        <thead><tr><th>Alumno</th>{periods.map(p=><th key={p.id} className="th-period">{p.name}</th>)}<th className="th-dark">Final</th></tr></thead>
+        <tbody>{sel.map(s=>{const fin=calcF(s.id);return(
+          <tr key={s.id}><td>{dn(s.full_name)}</td>
+            {periods.map(p=>{const g=calcP(s.id,p.id);return<td key={p.id} className="clf td-clf">{g??'—'}</td>})}
+            <td className="td-final">{fin??'—'}</td>
+          </tr>)})}
+        </tbody>
+      </table></div>
+
+      <p style={{fontSize:11,color:'#888',marginBottom:6}}>Editar calificaciones — {period?period.name:''}</p>
+      {loading?<div className="loading"><div className="spinner"/>Cargando...</div>:(
+        <div className="table-wrap"><table className="data-table">
+          <thead><tr>
+            <th style={{minWidth:130}}>Alumno</th>
+            {evidences.map((ev,i)=><th key={ev.id} className="num">{TRAITS[ev.trait_type]||ev.trait_type} {i+1}</th>)}
+            {evidences.length===0&&<th className="num">Sin evidencias</th>}
+            <th className="td-clf" style={{textAlign:'center',fontSize:10}}>Clf. Parcial</th>
+          </tr></thead>
+          <tbody>{sel.map(s=>{const clf=calcClf(s.id);return(
+            <tr key={s.id}><td>{dn(s.full_name)}</td>
+              {evidences.map(ev=>(
+                <td key={ev.id} className="num">
+                  <input type="number" min="0" max="100" value={getGrade(ev.id,s.id)}
+                    onChange={e=>updateGrade(ev.id,s.id,e.target.value)}
+                    style={{width:52,padding:'3px 6px',border:'1px solid #e0e0e8',borderRadius:5,textAlign:'center',fontSize:12,background:'transparent'}}/>
+                </td>))}
+              {evidences.length===0&&<td className="num">—</td>}
+              <td className="clf td-clf">{clf??'—'}</td>
+            </tr>)})}
+          </tbody>
+        </table></div>
+      )}
+    </div>
+    <div className="bottom-bar">
+      <button className="btn" onClick={()=>setViewing(false)}>← Regresar</button>
+      <button className="btn ml-auto" onClick={save} disabled={saving||!dirty}><SaveIcon/>{saving?'Guardando...':'Guardar'}</button>
+    </div>
+  </>)
+
+  return(<div className="content">
+    <p style={{fontSize:13,color:'#888',marginBottom:12}}>Selecciona los alumnos:</p>
+    <div style={{marginBottom:20}}>{students.map(s=><button key={s.id} className={`student-tag ${selected.includes(s.id)?'selected':''}`} onClick={()=>toggle(s.id)}>{dn(s.full_name)}</button>)}</div>
+    <div style={{display:'flex',gap:8}}>
+      <button className="btn btn-primary" disabled={selected.length===0} onClick={()=>setViewing(true)}>Revisar</button>
+      {selected.length>0&&<button className="btn" onClick={()=>setSelected([])}>Limpiar</button>}
+    </div>
+  </div>)
 }
 
 export default function ClassView(){
@@ -97,7 +300,7 @@ const{id}=useParams();const navigate=useNavigate();const location=useLocation()
     {tab==='general'&&<><div className="content"><GeneralTab students={students} periods={periods} allEvidences={allEvidences}/></div><div className="bottom-bar"><button className="btn" onClick={()=>navigate(`/clase/${id}/rasgos`)}>Rasgos</button><button className="btn btn-primary" onClick={()=>setShowAddStu(true)}><PlusIcon/>Añadir alumno</button><button className="btn" onClick={()=>navigate(`/clase/${id}/periodos`)}>Periodos</button><button className="btn" onClick={()=>setShowEditStu(true)}>Editar alumnos</button></div></>}
     {tab==='asistencia'&&<AttendanceTab classId={id} students={students} periods={periods}/>}
     {tab==='evidencias'&&<EvidencesTab classId={id} students={students} periods={periods} models={models} onEvidencesChange={onEC} initialPeriodId={urlPeriodId}/>}
-    {tab==='por-alumnos'&&<PerStudentTab students={students} periods={periods} allEvidences={allEvidences}/>}
+    {tab==='por-alumnos'&&<PerStudentTab classId={id} students={students} periods={periods} models={models} allEvidences={allEvidences} onEvidencesChange={onEC}/>}
     {showAddStu&&<AddStudentModal classId={id} onClose={()=>setShowAddStu(false)} onAdded={s=>setStudents(p=>[...p,s])}/>}
     {showLinks&&<EditLinksModal cls={cls} onClose={()=>setShowLinks(false)} onSaved={links=>setCls(c=>({...c,links}))}/>}
     {showEditStu&&<EditStudentsModal students={students} onClose={()=>setShowEditStu(false)} onUpdated={u=>setStudents(p=>p.map(s=>s.id===u.id?u:s))} onDeleted={did=>setStudents(p=>p.filter(s=>s.id!==did))}/>}

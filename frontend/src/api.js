@@ -26,6 +26,7 @@ export const api={
   deleteModel:(id)=>req('DELETE',`/periods/models/${id}`),
   getAttendance:(cid,pid)=>req('GET',`/attendance?class_id=${cid}&period_id=${pid}`),
   saveAttendance:(d)=>req('POST','/attendance/save',d),
+  deleteAttendanceDay:(id)=>req('DELETE',`/attendance/day/${id}`),
   getEvidences:(cid,pid)=>req('GET',`/evidences?class_id=${cid}&period_id=${pid}`),
   addEvidence:(d)=>req('POST','/evidences',d),
   deleteEvidence:(id)=>req('DELETE',`/evidences/${id}`),
