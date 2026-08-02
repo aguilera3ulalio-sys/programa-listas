@@ -42,6 +42,18 @@ async function init() {
       highlight_field1 TEXT, highlight_field2 TEXT, highlight_field3 TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS calendar_meetings(
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      meeting_date DATE NOT NULL,
+      start_time TEXT,
+      end_time TEXT,
+      color TEXT DEFAULT '#c0185a',
+      notes TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS class_links(
       id SERIAL PRIMARY KEY,
       class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,

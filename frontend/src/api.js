@@ -34,4 +34,7 @@ export const api={
   getEvents:(uid)=>req('GET',`/calendar?user_id=${uid}`),
   addEvent:(d)=>req('POST','/calendar',d),
   deleteEvent:(id)=>req('DELETE',`/calendar/${id}`),
+  getMeetings:(uid,from,to)=>req('GET',`/calendar/meetings/list?user_id=${uid}`+(from&&to?`&from=${from}&to=${to}`:'')),
+  addMeeting:(d)=>req('POST','/calendar/meetings',d),
+  deleteMeeting:(id)=>req('DELETE',`/calendar/meetings/${id}`),
 }
