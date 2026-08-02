@@ -3,7 +3,7 @@ import{useNavigate}from'react-router-dom'
 import{useAuth}from'../context/AuthContext'
 import{api}from'../api'
 import Sidebar,{MenuButton} from '../components/Sidebar'
-import{BooksIcon,LinkIcon}from'../components/Icons'
+import{BooksIcon,LinkIcon,ExternalIcon}from'../components/Icons'
 import logoUrl from'../assets/logo.js'
 const PlusIcon=()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 const TrashIcon=()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
@@ -205,13 +205,24 @@ function ClassCard({cls,onDelete,onEdit,onClick}){
         {[cls.highlight_field1,cls.highlight_field2,cls.highlight_field3].filter(Boolean).map((h,i)=><span key={i} className="badge" style={{background:col.light,color:col.text}}>{h}</span>)}
       </div>
     </div>
+    {(cls.links||[]).length>0&&(
+      <div style={{display:'flex',flexWrap:'wrap',gap:5,padding:'0 14px 12px'}}>
+        {cls.links.map(l=>(
+          <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
+             title={l.url}
+             onClick={e=>e.stopPropagation()}
+             style={{display:'inline-flex',alignItems:'center',gap:4,maxWidth:'100%',
+                     padding:'4px 9px',borderRadius:14,border:'1px solid #e0e0e8',
+                     background:'#f5f5f8',color:'#555',fontSize:11,fontWeight:500,
+                     textDecoration:'none'}}>
+            <LinkIcon size={11}/>
+            <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.label}</span>
+            <ExternalIcon size={9}/>
+          </a>
+        ))}
+      </div>
+    )}
     <div style={{display:'flex',gap:6,alignItems:'center',justifyContent:'flex-end',padding:'8px 14px',borderTop:'1px solid #f0f0f4'}}>
-      {(cls.links||[]).length>0&&(
-        <span title={`${cls.links.length} enlace${cls.links.length>1?'s':''}`}
-              style={{display:'inline-flex',alignItems:'center',gap:3,marginRight:'auto',fontSize:11,color:'#888'}}>
-          <LinkIcon size={12}/>{cls.links.length}
-        </span>
-      )}
       <button className="btn-icon" onClick={e=>{e.stopPropagation();onEdit(cls)}}><EditIcon/></button>
       <button className="btn-icon danger" onClick={e=>{e.stopPropagation();onDelete(cls)}}><TrashIcon/></button>
     </div>
