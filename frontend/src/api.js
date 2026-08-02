@@ -12,6 +12,7 @@ export const api={
   createClass:(d)=>req('POST','/classes',d),
   updateClass:(id,d)=>req('PATCH',`/classes/${id}`,d),
   deleteClass:(id,uid,nip)=>req('DELETE',`/classes/${id}`,{user_id:uid,nip}),
+  saveClassLinks:(id,links)=>req('PUT',`/classes/${id}/links`,{links}),
   getStudents:(cid)=>req('GET',`/students?class_id=${cid}`),
   addStudent:(cid,name)=>req('POST','/students',{class_id:cid,full_name:name}),
   updateStudent:(id,name)=>req('PATCH',`/students/${id}`,{full_name:name}),

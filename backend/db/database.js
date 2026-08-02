@@ -42,6 +42,13 @@ async function init() {
       highlight_field1 TEXT, highlight_field2 TEXT, highlight_field3 TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS class_links(
+      id SERIAL PRIMARY KEY,
+      class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      url TEXT NOT NULL,
+      position INTEGER DEFAULT 0
+    );
     CREATE TABLE IF NOT EXISTS class_details(
       id SERIAL PRIMARY KEY,
       class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,

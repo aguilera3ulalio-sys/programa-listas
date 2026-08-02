@@ -1,11 +1,32 @@
 const express=require('express'),router=express.Router(),db=require('../db/database'),bcrypt=require('bcryptjs')
 const nipMatches=(entered,stored)=>{if(stored==null)return false;if(typeof stored==='string'&&stored.startsWith('$2'))return bcrypt.compareSync(String(entered),stored);return String(entered)===String(stored)}
 const getDetails=async id=>(await db.all('SELECT value FROM class_details WHERE class_id=$1 ORDER BY id',[id])).map(d=>d.value)
+const getLinks=async id=>await db.all('SELECT id,label,url,position FROM class_links WHERE class_id=$1 ORDER BY position,id',[id])
+const MAX_LINKS=2
+// Only http(s) URLs are accepted. Blocks javascript:, data:, etc.
+function normalizeUrl(raw){
+  if(typeof raw!=='string')return null
+  let u=raw.trim()
+  if(!u)return null
+  // If it already declares a scheme, it must be http(s). Reject javascript:, data:, file:, etc.
+  const scheme=u.match(/^([a-z][a-z0-9+.-]*):/i)
+  if(scheme){
+    const p=scheme[1].toLowerCase()
+    if(p!=='http'&&p!=='https')return null
+  }else{
+    u='https://'+u   // no scheme given: assume https
+  }
+  let parsed
+  try{parsed=new URL(u)}catch{return null}
+  if(parsed.protocol!=='http:'&&parsed.protocol!=='https:')return null
+  if(!parsed.hostname||!parsed.hostname.includes('.'))return null  // needs a real domain
+  return parsed.toString()
+}
 
 router.get('/',async(req,res)=>{
   try{
     const cls=await db.all('SELECT * FROM classes WHERE user_id=$1 ORDER BY created_at DESC',[req.query.user_id])
-    const out=[];for(const c of cls)out.push({...c,details:await getDetails(c.id)})
+    const out=[];for(const c of cls)out.push({...c,details:await getDetails(c.id),links:await getLinks(c.id)})
     res.json(out)
   }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
 })
@@ -14,7 +35,7 @@ router.get('/:id',async(req,res)=>{
   try{
     const c=await db.get('SELECT * FROM classes WHERE id=$1',[req.params.id])
     if(!c)return res.status(404).json({error:'Clase no encontrada'})
-    res.json({...c,details:await getDetails(c.id)})
+    res.json({...c,details:await getDetails(c.id),links:await getLinks(c.id)})
   }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
 })
 
@@ -51,7 +72,7 @@ router.patch('/:id',async(req,res)=>{
     if(highlight_field3!==undefined){f.push(`highlight_field3=$${n++}`);v.push(highlight_field3)}
     if(f.length){v.push(req.params.id);await db.run(`UPDATE classes SET ${f.join(',')} WHERE id=$${n}`,v)}
     const u=await db.get('SELECT * FROM classes WHERE id=$1',[req.params.id])
-    res.json({...u,details:await getDetails(req.params.id)})
+    res.json({...u,details:await getDetails(req.params.id),links:await getLinks(req.params.id)})
   }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
 })
 
@@ -64,4 +85,28 @@ router.delete('/:id',async(req,res)=>{
     res.json({success:true})
   }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
 })
+// --- Class links (max 2 per class) ---
+// Replaces the whole set in one call; simpler and keeps ordering predictable.
+router.put('/:id/links',async(req,res)=>{
+  try{
+    const cls=await db.get('SELECT id FROM classes WHERE id=$1',[req.params.id])
+    if(!cls)return res.status(404).json({error:'Clase no encontrada'})
+    const incoming=Array.isArray(req.body.links)?req.body.links:[]
+    if(incoming.length>MAX_LINKS)return res.status(400).json({error:`Maximo ${MAX_LINKS} enlaces por clase`})
+    const clean=[]
+    for(const l of incoming){
+      const label=(l.label||'').trim()
+      const url=normalizeUrl(l.url)
+      if(!label&&!l.url)continue                 // skip fully empty rows
+      if(!label)return res.status(400).json({error:'Cada enlace necesita un nombre'})
+      if(!url)return res.status(400).json({error:`La direccion de "${label}" no es valida`})
+      clean.push({label:label.slice(0,40),url})
+    }
+    await db.run('DELETE FROM class_links WHERE class_id=$1',[req.params.id])
+    for(let i=0;i<clean.length;i++)
+      await db.run('INSERT INTO class_links(class_id,label,url,position)VALUES($1,$2,$3,$4)',[req.params.id,clean[i].label,clean[i].url,i])
+    res.json(await getLinks(req.params.id))
+  }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
+})
+
 module.exports=router

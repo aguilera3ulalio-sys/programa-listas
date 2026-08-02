@@ -3,7 +3,7 @@ import{useParams,useNavigate,useLocation}from'react-router-dom'
 import{useAuth}from'../context/AuthContext'
 import{api}from'../api'
 import Sidebar,{MenuButton} from '../components/Sidebar'
-import{UsersIcon,CloseIcon}from'../components/Icons'
+import{UsersIcon,CloseIcon,LinkIcon,ExternalIcon}from'../components/Icons'
 import logoUrl from'../assets/logo.js'
 const TRAITS={actividades:'Actividades',tareas:'Tareas',proyecto:'Proyecto',examen:'Examen',practicas:'Prácticas',asistencia:'Asistencia',trabajos:'Trabajos'}
 const PlusIcon=()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -18,8 +18,71 @@ function GeneralTab({students,periods,allEvidences}){if(students.length===0)retu
 function AttendanceTab({classId,students,periods}){const[activePeriod,setActivePeriod]=useState(0);const[days,setDays]=useState([]);const[records,setRecords]=useState({});const[loading,setLoading]=useState(false);const[saving,setSaving]=useState(false);const[dirty,setDirty]=useState(false);const[showAdd,setShowAdd]=useState(false);const[newDay,setNewDay]=useState({day:'',month:''});const period=periods[activePeriod];useEffect(()=>{if(!period)return;setLoading(true);api.getAttendance(classId,period.id).then(d=>{setDays(d.days||[]);setRecords(d.records||{})}).catch(console.error).finally(()=>setLoading(false))},[classId,period?.id]);const toggle=(dayId,sid)=>{setRecords(p=>{const k=`${dayId}_${sid}`;return{...p,[k]:p[k]?0:1}});setDirty(true)};const get=(dayId,sid)=>records[`${dayId}_${sid}`]||0;const pct=sid=>{if(!days.length)return null;const p=days.filter(d=>get(d.id,sid)===1).length;return Math.round(p/days.length*100)};const save=async()=>{setSaving(true);try{await api.saveAttendance({period_id:period.id,records});setDirty(false)}catch(err){console.error(err)}finally{setSaving(false)}};const addDay=async()=>{if(!newDay.day||!newDay.month)return;try{const u=await api.saveAttendance({period_id:period.id,new_day:newDay,records});setDays(u.days||days);setRecords(u.records||records);setShowAdd(false);setNewDay({day:'',month:''})}catch(err){console.error(err)}};if(!period)return<div className="loading">No hay periodos</div>;return(<><div style={{display:'flex',gap:6,padding:'10px 20px',background:'#fff',borderBottom:'1px solid #e0e0e8'}}>{periods.map((p,i)=><button key={p.id} className={`pill ${activePeriod===i?'active':''}`} onClick={()=>setActivePeriod(i)}>{p.name}</button>)}</div><div className="content">{loading?<div className="loading"><div className="spinner"/>Cargando...</div>:(<div className="table-wrap"><table className="data-table" style={{minWidth:480}}><thead><tr><th style={{minWidth:130}}>Alumno</th>{days.map(d=><th key={d.id} className="num">{d.day}<br/><small style={{fontWeight:400,textTransform:'none'}}>{d.month}</small></th>)}{days.length===0&&<th className="num">Sin días</th>}<th style={{textAlign:'center',background:'#eeeef2',color:'#555'}}>%Asis</th></tr></thead><tbody>{students.map(s=>{const p=pct(s.id);return<tr key={s.id}><td>{dn(s.full_name)}</td>{days.map(d=>{const v=get(d.id,s.id);return<td key={d.id} className="num" style={{cursor:'pointer'}} onClick={()=>toggle(d.id,s.id)}><span className={v?'present-badge':'absent-badge'}>{v}</span></td>})}{days.length===0&&<td className="num">—</td>}<td style={{textAlign:'center',fontWeight:600,color:p===null?'#aaa':p>=70?'#15803d':'#991b1b'}}>{p===null?'—':`${p}%`}</td></tr>})}</tbody></table></div>)}{showAdd&&<div style={{display:'flex',gap:10,alignItems:'flex-end',marginTop:16,background:'#f5f5f8',padding:14,borderRadius:10}}><div><label className="form-label">Día</label><input className="form-input" style={{width:70}} placeholder="18" value={newDay.day} onChange={e=>setNewDay(p=>({...p,day:e.target.value}))}/></div><div><label className="form-label">Mes</label><input className="form-input" style={{width:90}} placeholder="Nov" value={newDay.month} onChange={e=>setNewDay(p=>({...p,month:e.target.value}))}/></div><button className="btn btn-primary" onClick={addDay}>Agregar</button><button className="btn" onClick={()=>setShowAdd(false)}>Cancelar</button></div>}</div><div className="bottom-bar"><button className="btn btn-primary" onClick={()=>setShowAdd(true)}><PlusIcon/> Agregar día</button><button className="btn ml-auto" onClick={save} disabled={saving||!dirty}><SaveIcon/>{saving?'Guardando...':'Guardar'}</button></div></>)}
 function EvidencesTab({classId,students,periods,models,onEvidencesChange,initialPeriodId}){const getIdx=()=>{if(initialPeriodId){const i=periods.findIndex(p=>p.id===parseInt(initialPeriodId));return i>=0?i:0}return 0};const[activePeriod,setActivePeriod]=useState(0);const[evidences,setEvidences]=useState([]);const[grades,setGrades]=useState({});const[loading,setLoading]=useState(false);const[saving,setSaving]=useState(false);const[dirty,setDirty]=useState(false);const[showAdd,setShowAdd]=useState(false);const period=periods[activePeriod];useEffect(()=>{if(initialPeriodId&&periods.length>0){const i=periods.findIndex(p=>p.id===parseInt(initialPeriodId));if(i>=0)setActivePeriod(i)}},[initialPeriodId,periods.length]);const load=useCallback(()=>{if(!period)return;setLoading(true);api.getEvidences(classId,period.id).then(d=>{setEvidences(d.evidences||[]);setGrades(d.grades||{});onEvidencesChange&&onEvidencesChange(period.id,d.evidences||[],d.grades||{})}).catch(console.error).finally(()=>setLoading(false))},[classId,period?.id]);useEffect(()=>{load()},[load]);const updateGrade=(evId,sid,val)=>{setGrades(p=>({...p,[`${evId}_${sid}`]:val===''?null:parseFloat(val)}));setDirty(true)};const getGrade=(evId,sid)=>{const v=grades[`${evId}_${sid}`];return v===null||v===undefined?'':v};const save=async()=>{setSaving(true);try{await Promise.all(evidences.map(ev=>api.saveGrades(ev.id,students.map(s=>({student_id:s.id,grade:grades[`${ev.id}_${s.id}`]??null})))));setDirty(false)}catch(err){console.error(err)}finally{setSaving(false)}};const delEv=async evId=>{if(!confirm('¿Eliminar esta evidencia?'))return;await api.deleteEvidence(evId);load()};const calcClf=sid=>{if(!evidences.length)return null;let s=0,c=0;evidences.forEach(ev=>{const g=grades[`${ev.id}_${sid}`];if(g!=null){s+=g;c++}});return c?Math.round(s/c):null};if(!period)return<div className="loading">No hay periodos</div>;return(<><div style={{display:'flex',gap:6,padding:'10px 20px',background:'#fff',borderBottom:'1px solid #e0e0e8'}}>{periods.map((p,i)=><button key={p.id} className={`pill ${activePeriod===i?'active':''}`} onClick={()=>setActivePeriod(i)}>{p.name}</button>)}</div><div className="content">{loading?<div className="loading"><div className="spinner"/>Cargando...</div>:(<div className="table-wrap"><table className="data-table"><thead><tr><th style={{minWidth:130}}>Alumno</th>{evidences.map((ev,i)=><th key={ev.id} className="num"><div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>{TRAITS[ev.trait_type]||ev.trait_type} {i+1}<button className="btn-icon" style={{width:18,height:18,fontSize:10}} onClick={()=>delEv(ev.id)}><CloseIcon size={10}/></button></div></th>)}{evidences.length===0&&<th className="num">Sin evidencias</th>}<th className="td-clf" style={{textAlign:'center',fontSize:10}}>Clf. Parcial</th></tr></thead><tbody>{students.map(s=>{const clf=calcClf(s.id);return(<tr key={s.id}><td>{dn(s.full_name)}</td>{evidences.map(ev=><td key={ev.id} className="num"><input type="number" min="0" max="100" value={getGrade(ev.id,s.id)} onChange={e=>updateGrade(ev.id,s.id,e.target.value)} style={{width:52,padding:'3px 6px',border:'1px solid #e0e0e8',borderRadius:5,textAlign:'center',fontSize:12,background:'transparent'}}/></td>)}{evidences.length===0&&<td className="num">—</td>}<td className="clf td-clf">{clf??'—'}</td></tr>)})}</tbody></table></div>)}</div><div className="bottom-bar"><button className="btn btn-primary" onClick={()=>setShowAdd(true)}><PlusIcon/> Agregar evidencia</button><button className="btn ml-auto" onClick={save} disabled={saving||!dirty}><SaveIcon/>{saving?'Guardando...':'Guardar'}</button></div>{showAdd&&period&&<AddEvidenceModal period={period} models={models} onClose={()=>setShowAdd(false)} onAdded={()=>{setShowAdd(false);load()}}/>}</>)}
 function PerStudentTab({students,periods,allEvidences}){const[selected,setSelected]=useState([]);const[viewing,setViewing]=useState(false);const toggle=id=>setSelected(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);const calcP=(sid,pid)=>{const evs=allEvidences[pid]||[];if(!evs.length)return null;let s=0,c=0;evs.forEach(ev=>{const g=(ev.grades||{})[sid];if(g!=null){s+=g;c++}});return c?Math.round(s/c):null};const calcF=sid=>{let ws=0,tw=0;periods.forEach(p=>{const g=calcP(sid,p.id);if(g!=null){ws+=g*p.weight;tw+=p.weight}});return tw?Math.round(ws/tw):null};const sel=students.filter(s=>selected.includes(s.id));if(viewing&&sel.length>0)return(<div className="content"><div style={{fontSize:13,fontWeight:600,marginBottom:12}}>{sel.map(s=>dn(s.full_name)).join(' · ')}</div><div className="table-wrap"><table className="data-table" style={{minWidth:480,marginBottom:20}}><thead><tr><th>Alumno</th>{periods.map(p=><th key={p.id} className="th-period">{p.name}</th>)}<th className="th-dark">Final</th></tr></thead><tbody>{sel.map(s=>{const fin=calcF(s.id);return<tr key={s.id}><td>{dn(s.full_name)}</td>{periods.map(p=>{const g=calcP(s.id,p.id);return<td key={p.id} className="clf td-clf">{g??'—'}</td>})}<td className="td-final">{fin??'—'}</td></tr>})}</tbody></table></div><button className="btn" onClick={()=>setViewing(false)}>← Regresar</button></div>);return(<div className="content"><p style={{fontSize:13,color:'#888',marginBottom:12}}>Selecciona los alumnos:</p><div style={{marginBottom:20}}>{students.map(s=><button key={s.id} className={`student-tag ${selected.includes(s.id)?'selected':''}`} onClick={()=>toggle(s.id)}>{dn(s.full_name)}</button>)}</div><div style={{display:'flex',gap:8}}><button className="btn btn-primary" disabled={selected.length===0} onClick={()=>setViewing(true)}>Revisar</button>{selected.length>0&&<button className="btn" onClick={()=>setSelected([])}>Limpiar</button>}</div></div>)}
+function LinksBar({links,onEdit}){
+  const has=links&&links.length>0
+  return(
+    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',padding:'10px 20px',background:'#fff',borderBottom:'1px solid #e0e0e8'}}>
+      {has?links.map(l=>(
+        <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
+           style={{display:'inline-flex',alignItems:'center',gap:6,padding:'5px 11px',borderRadius:16,
+                   border:'1px solid #e0e0e8',background:'#f5f5f8',color:'#1a1a26',
+                   fontSize:12,fontWeight:500,textDecoration:'none'}}>
+          <LinkIcon size={12}/>{l.label}<ExternalIcon size={10}/>
+        </a>
+      )):<span style={{fontSize:12,color:'#aaa'}}>Sin enlaces</span>}
+      <button className="btn btn-sm" style={{marginLeft:'auto'}} onClick={onEdit}>
+        <LinkIcon size={12}/> {has?'Editar enlaces':'Agregar enlaces'}
+      </button>
+    </div>
+  )
+}
+
+function EditLinksModal({cls,onClose,onSaved}){
+  const init=(cls.links||[]).map(l=>({label:l.label,url:l.url}))
+  while(init.length<2)init.push({label:'',url:''})
+  const[rows,setRows]=useState(init.slice(0,2))
+  const[loading,setLoading]=useState(false);const[error,setError]=useState('')
+  const upd=(i,f,v)=>setRows(p=>p.map((r,j)=>j===i?{...r,[f]:v}:r))
+  const submit=async e=>{
+    e.preventDefault();setError('');setLoading(true)
+    try{
+      const links=rows.filter(r=>r.label.trim()||r.url.trim())
+      const saved=await api.saveClassLinks(cls.id,links)
+      onSaved(saved);onClose()
+    }catch(err){setError(err.message)}finally{setLoading(false)}
+  }
+  return(<div className="modal-overlay" style={{alignItems:'flex-start',paddingTop:40}} onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
+    <h2 className="modal-title">Enlaces de la clase</h2>
+    <p style={{fontSize:12,color:'#888',marginBottom:16,lineHeight:1.5}}>
+      Accesos directos a Classroom, Canvas, Drive o lo que uses. Maximo 2.
+    </p>
+    {error&&<div className="alert alert-error">{error}</div>}
+    <form onSubmit={submit}>
+      {rows.map((r,i)=>(
+        <div key={i} style={{marginBottom:14,paddingBottom:14,borderBottom:i===0?'1px solid #f0f0f4':'none'}}>
+          <div className="form-group" style={{marginBottom:8}}>
+            <label className="form-label">Nombre {i+1}</label>
+            <input className="form-input" placeholder="Ej. Classroom T1 Grupo 32" value={r.label}
+                   onChange={e=>upd(i,'label',e.target.value)} maxLength={40}/>
+          </div>
+          <div className="form-group" style={{marginBottom:0}}>
+            <label className="form-label">Direccion</label>
+            <input className="form-input" placeholder="classroom.google.com/..." value={r.url}
+                   onChange={e=>upd(i,'url',e.target.value)}/>
+          </div>
+        </div>
+      ))}
+      <div className="modal-actions">
+        <button type="button" className="btn" onClick={onClose}>Cancelar</button>
+        <button type="submit" className="btn btn-primary" disabled={loading}>{loading?'Guardando...':'Guardar'}</button>
+      </div>
+    </form>
+  </div></div>)
+}
+
 export default function ClassView(){
     const[menuOpen,setMenuOpen]=useState(false)
+  const[showLinks,setShowLinks]=useState(false)
 const{id}=useParams();const navigate=useNavigate();const location=useLocation()
   const sp=new URLSearchParams(location.search);const urlTab=sp.get('tab');const urlPeriodId=sp.get('period_id')
   const[cls,setCls]=useState(null);const[students,setStudents]=useState([]);const[periods,setPeriods]=useState([]);const[models,setModels]=useState([]);const[loading,setLoading]=useState(true);const[tab,setTab]=useState(urlTab||'general');const[showAddStu,setShowAddStu]=useState(false);const[showEditStu,setShowEditStu]=useState(false);const[allEvidences,setAllEvidences]=useState({})
@@ -30,11 +93,13 @@ const{id}=useParams();const navigate=useNavigate();const location=useLocation()
   return(<div className="app-shell"><Sidebar open={menuOpen} onClose={()=>setMenuOpen(false)}/><div className="main-content">
     <div className="topbar"><div className="topbar-left"><MenuButton onClick={()=>setMenuOpen(true)}/><img src={logoUrl} alt="UAQ" className="topbar-logo"/><div className="topbar-breadcrumb"><button className="back-link" onClick={()=>navigate('/')}>← Mis clases</button><span className="page-title">{cls.name}</span></div></div></div>
     <div className="tabs">{[['general','General'],['asistencia','Asistencia'],['evidencias','Evidencias'],['por-alumnos','Por alumnos']].map(([k,l])=><button key={k} className={`tab-btn ${tab===k?'active':''}`} onClick={()=>setTab(k)}>{l}</button>)}</div>
+    <LinksBar links={cls.links} onEdit={()=>setShowLinks(true)}/>
     {tab==='general'&&<><div className="content"><GeneralTab students={students} periods={periods} allEvidences={allEvidences}/></div><div className="bottom-bar"><button className="btn" onClick={()=>navigate(`/clase/${id}/rasgos`)}>Rasgos</button><button className="btn btn-primary" onClick={()=>setShowAddStu(true)}><PlusIcon/>Añadir alumno</button><button className="btn" onClick={()=>navigate(`/clase/${id}/periodos`)}>Periodos</button><button className="btn" onClick={()=>setShowEditStu(true)}>Editar alumnos</button></div></>}
     {tab==='asistencia'&&<AttendanceTab classId={id} students={students} periods={periods}/>}
     {tab==='evidencias'&&<EvidencesTab classId={id} students={students} periods={periods} models={models} onEvidencesChange={onEC} initialPeriodId={urlPeriodId}/>}
     {tab==='por-alumnos'&&<PerStudentTab students={students} periods={periods} allEvidences={allEvidences}/>}
     {showAddStu&&<AddStudentModal classId={id} onClose={()=>setShowAddStu(false)} onAdded={s=>setStudents(p=>[...p,s])}/>}
+    {showLinks&&<EditLinksModal cls={cls} onClose={()=>setShowLinks(false)} onSaved={links=>setCls(c=>({...c,links}))}/>}
     {showEditStu&&<EditStudentsModal students={students} onClose={()=>setShowEditStu(false)} onUpdated={u=>setStudents(p=>p.map(s=>s.id===u.id?u:s))} onDeleted={did=>setStudents(p=>p.filter(s=>s.id!==did))}/>}
   </div></div>)
 }
