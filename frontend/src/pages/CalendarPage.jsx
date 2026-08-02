@@ -5,8 +5,8 @@ import { api } from '../api'
 import Sidebar, { MenuButton } from '../components/Sidebar'
 import logoUrl from '../assets/logo.js'
 
-const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
-const DAY_KEYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
+const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+const DAY_KEYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
 const HOURS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const ROW_H = 46
@@ -44,19 +44,18 @@ function resolveEvent(ev, classes) {
 // Build Mon-Fri month grid. Returns weeks of 5 cells.
 function buildMonthGrid(year, month, todayIso) {
   const first = new Date(year, month, 1)
-  const startOffset = (first.getDay() + 6) % 7
+  const startOffset = (first.getDay() + 6) % 7   // Mon=0 ... Sun=6
   const cursor = new Date(year, month, 1 - startOffset)
   const weeks = []
   for (let w = 0; w < 6; w++) {
     const week = []
     for (let d = 0; d < 7; d++) {
-      if (d < 5) {
-        const dt = new Date(cursor)
-        week.push({
-          date: isoOf(dt), day: dt.getDate(), weekdayIdx: d,
-          inMonth: dt.getMonth() === month, isToday: isoOf(dt) === todayIso,
-        })
-      }
+      const dt = new Date(cursor)
+      week.push({
+        date: isoOf(dt), day: dt.getDate(), weekdayIdx: d,
+        inMonth: dt.getMonth() === month, isToday: isoOf(dt) === todayIso,
+        isWeekend: d >= 5,
+      })
       cursor.setDate(cursor.getDate() + 1)
     }
     if (!week.some(c => c.inMonth) && w > 0) break
@@ -384,35 +383,44 @@ export default function CalendarPage() {
 
         {/* Filters */}
         {(classesUsed.length > 0 || hasUnlinked || meetings.length > 0) && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', padding: '9px 20px', background: '#fff', borderBottom: '1px solid #e0e0e8' }}>
-            <span style={{ fontSize: 11, color: '#aaa', marginRight: 2 }}>Mostrar:</span>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center', padding: '11px 20px', background: '#fff', borderBottom: '1px solid #e0e0e8' }}>
+            <span style={{ fontSize: 12, color: '#888', marginRight: 4, fontWeight: 500 }}>Mostrar:</span>
             {classesUsed.map(c => {
               const on = !hidden.has(c.id)
+              const cc = c.color || '#c0185a'
               return (
                 <button key={c.id} onClick={() => toggleClass(c.id)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 14,
-                           border: `1px solid ${on ? (c.color || '#c0185a') : '#e0e0e8'}`,
-                           background: on ? (colorOf(c.color).light) : 'transparent',
-                           color: on ? colorOf(c.color).text : '#bbb', fontSize: 11, fontWeight: 500,
-                           cursor: 'pointer', opacity: on ? 1 : .6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: on ? (c.color || '#c0185a') : '#ccc' }} />
+                  title={on ? 'Ocultar' : 'Mostrar'}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 13px', borderRadius: 16,
+                           border: `1.5px solid ${on ? cc : '#d0d0da'}`,
+                           background: on ? cc : '#fff',
+                           color: on ? '#fff' : '#999', fontSize: 12, fontWeight: 600,
+                           cursor: 'pointer', transition: 'all .15s',
+                           textDecoration: on ? 'none' : 'line-through' }}>
+                  <span style={{ width: 9, height: 9, borderRadius: '50%',
+                                 background: on ? '#fff' : '#ccc',
+                                 border: on ? 'none' : `1.5px solid #ccc` }} />
                   {c.name}
                 </button>
               )
             })}
             {hasUnlinked && (
               <button onClick={() => setHideUnlinked(v => !v)}
-                style={{ padding: '4px 10px', borderRadius: 14, border: '1px solid #e0e0e8',
-                         background: hideUnlinked ? 'transparent' : '#f5f5f8',
-                         color: hideUnlinked ? '#bbb' : '#555', fontSize: 11, fontWeight: 500, cursor: 'pointer' }}>
+                title={hideUnlinked ? 'Mostrar' : 'Ocultar'}
+                style={{ padding: '6px 13px', borderRadius: 16, border: `1.5px solid ${hideUnlinked ? '#d0d0da' : '#555'}`,
+                         background: hideUnlinked ? '#fff' : '#555',
+                         color: hideUnlinked ? '#999' : '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                         textDecoration: hideUnlinked ? 'line-through' : 'none' }}>
                 Otras
               </button>
             )}
             {meetings.length > 0 && (
               <button onClick={() => setHideMeetings(v => !v)}
-                style={{ padding: '4px 10px', borderRadius: 14, border: '1px solid #e0e0e8',
-                         background: hideMeetings ? 'transparent' : '#f5f5f8',
-                         color: hideMeetings ? '#bbb' : '#555', fontSize: 11, fontWeight: 500, cursor: 'pointer' }}>
+                title={hideMeetings ? 'Mostrar' : 'Ocultar'}
+                style={{ padding: '6px 13px', borderRadius: 16, border: `1.5px solid ${hideMeetings ? '#d0d0da' : '#1a1a26'}`,
+                         background: hideMeetings ? '#fff' : '#1a1a26',
+                         color: hideMeetings ? '#999' : '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                         textDecoration: hideMeetings ? 'line-through' : 'none' }}>
                 Reuniones
               </button>
             )}
@@ -433,14 +441,14 @@ export default function CalendarPage() {
           {loading ? <div className="loading"><div className="spinner" />Cargando...</div> : view === 'week' ? (
             <>
               <div style={{ overflowX: 'auto' }}>
-                <div style={{ minWidth: 620, border: '1px solid #e0e0e8', borderRadius: 10, overflow: 'hidden', background: '#e0e0e8' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '58px repeat(5,1fr)', gap: 1 }}>
+                <div style={{ minWidth: 780, border: '1px solid #e0e0e8', borderRadius: 10, overflow: 'hidden', background: '#e0e0e8' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '58px repeat(7,1fr)', gap: 1 }}>
                     <div style={{ background: '#f5f5f8', minHeight: 32 }} />
                     {DAYS.map(d => (
                       <div key={d} style={{ background: '#f5f5f8', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 32, fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '.05em' }}>{d}</div>
                     ))}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '58px repeat(5,1fr)', gap: 1, marginTop: 1 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '58px repeat(7,1fr)', gap: 1, marginTop: 1 }}>
                     <div style={{ display: 'grid', gridTemplateRows: `repeat(${HOURS.length}, ${ROW_H}px)`, gap: 1 }}>
                       {HOURS.map(h => (
                         <div key={h} style={{ background: '#fff', fontSize: 10, color: '#aaa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{h}:00</div>
@@ -502,14 +510,14 @@ export default function CalendarPage() {
           ) : (
             /* ---------- MONTH VIEW ---------- */
             <div style={{ overflowX: 'auto' }}>
-              <div style={{ minWidth: 640, border: '1px solid #e0e0e8', borderRadius: 10, overflow: 'hidden', background: '#e0e0e8' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 1 }}>
+              <div style={{ minWidth: 800, border: '1px solid #e0e0e8', borderRadius: 10, overflow: 'hidden', background: '#e0e0e8' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 1 }}>
                   {DAYS.map(d => (
                     <div key={d} style={{ background: '#f5f5f8', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 30, fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '.05em' }}>{d}</div>
                   ))}
                 </div>
                 {weeks.map((week, wi) => (
-                  <div key={wi} style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 1, marginTop: 1 }}>
+                  <div key={wi} style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 1, marginTop: 1 }}>
                     {week.map(cell => {
                       const dayClasses = visibleEvents.filter(ev => normalize(ev.day_of_week) === normalize(DAY_KEYS[cell.weekdayIdx]))
                         .sort((a, b) => parseInt(a.start_time) - parseInt(b.start_time))
@@ -517,7 +525,7 @@ export default function CalendarPage() {
                       return (
                         <div key={cell.date}
                           onClick={() => { setMeetingDate(cell.date); setShowAddMeeting(true) }}
-                          style={{ background: cell.inMonth ? '#fff' : '#fafafb', minHeight: 104, padding: 6, cursor: 'pointer', opacity: cell.inMonth ? 1 : .55 }}>
+                          style={{ background: cell.inMonth ? (cell.isWeekend ? '#fbfbfd' : '#fff') : '#fafafb', minHeight: 104, padding: 6, cursor: 'pointer', opacity: cell.inMonth ? 1 : .55 }}>
                           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
                             <span style={{
                               fontSize: 11, fontWeight: cell.isToday ? 700 : 500,
