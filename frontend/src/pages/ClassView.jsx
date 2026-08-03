@@ -283,6 +283,68 @@ function PerStudentTab({classId,students,periods,models,allEvidences,onEvidences
   </div>)
 }
 
+function LinksBar({links,onEdit}){
+  const has=links&&links.length>0
+  return(
+    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',padding:'10px 20px',background:'#fff',borderBottom:'1px solid #e0e0e8'}}>
+      {has?links.map(l=>(
+        <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
+           style={{display:'inline-flex',alignItems:'center',gap:6,padding:'5px 11px',borderRadius:16,
+                   border:'1px solid #e0e0e8',background:'#f5f5f8',color:'#1a1a26',
+                   fontSize:12,fontWeight:500,textDecoration:'none'}}>
+          <LinkIcon size={12}/>{l.label}<ExternalIcon size={10}/>
+        </a>
+      )):<span style={{fontSize:12,color:'#aaa'}}>Sin enlaces</span>}
+      <button className="btn btn-sm" style={{marginLeft:'auto'}} onClick={onEdit}>
+        <LinkIcon size={12}/> {has?'Editar enlaces':'Agregar enlaces'}
+      </button>
+    </div>
+  )
+}
+
+function EditLinksModal({cls,onClose,onSaved}){
+  const init=(cls.links||[]).map(l=>({label:l.label,url:l.url}))
+  while(init.length<2)init.push({label:'',url:''})
+  const[rows,setRows]=useState(init.slice(0,2))
+  const[loading,setLoading]=useState(false);const[error,setError]=useState('')
+  const upd=(i,f,v)=>setRows(p=>p.map((r,j)=>j===i?{...r,[f]:v}:r))
+  const submit=async e=>{
+    e.preventDefault();setError('');setLoading(true)
+    try{
+      const links=rows.filter(r=>r.label.trim()||r.url.trim())
+      const saved=await api.saveClassLinks(cls.id,links)
+      onSaved(saved);onClose()
+    }catch(err){setError(err.message)}finally{setLoading(false)}
+  }
+  return(<div className="modal-overlay" style={{alignItems:'flex-start',paddingTop:40}} onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
+    <h2 className="modal-title">Enlaces de la clase</h2>
+    <p style={{fontSize:12,color:'#888',marginBottom:16,lineHeight:1.5}}>
+      Accesos directos a Classroom, Canvas, Drive o lo que uses. Maximo 2.
+    </p>
+    {error&&<div className="alert alert-error">{error}</div>}
+    <form onSubmit={submit}>
+      {rows.map((r,i)=>(
+        <div key={i} style={{marginBottom:14,paddingBottom:14,borderBottom:i===0?'1px solid #f0f0f4':'none'}}>
+          <div className="form-group" style={{marginBottom:8}}>
+            <label className="form-label">Nombre {i+1}</label>
+            <input className="form-input" placeholder="Ej. Classroom T1 Grupo 32" value={r.label}
+                   onChange={e=>upd(i,'label',e.target.value)} maxLength={40}/>
+          </div>
+          <div className="form-group" style={{marginBottom:0}}>
+            <label className="form-label">Direccion</label>
+            <input className="form-input" placeholder="classroom.google.com/..." value={r.url}
+                   onChange={e=>upd(i,'url',e.target.value)}/>
+          </div>
+        </div>
+      ))}
+      <div className="modal-actions">
+        <button type="button" className="btn" onClick={onClose}>Cancelar</button>
+        <button type="submit" className="btn btn-primary" disabled={loading}>{loading?'Guardando...':'Guardar'}</button>
+      </div>
+    </form>
+  </div></div>)
+}
+
 export default function ClassView(){
     const[menuOpen,setMenuOpen]=useState(false)
   const[showLinks,setShowLinks]=useState(false)
