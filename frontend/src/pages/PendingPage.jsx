@@ -117,6 +117,7 @@ const { user } = useAuth()
                             <span style={{ background: '#fef9c3', color: '#854d0e', fontSize: 11, fontWeight: 600, borderRadius: 4, padding: '2px 8px' }}>
                               {TRAIT_LABELS[p.trait_type] || p.trait_type}
                             </span>
+                            {p.evidence_name && <div style={{fontSize:12,color:'#888',marginTop:2}}>{p.evidence_name}</div>}
                           </td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>

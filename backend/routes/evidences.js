@@ -44,15 +44,36 @@ router.get('/',async(req,res)=>{
 router.post('/',async(req,res)=>{
   try{
     const{period_id,trait_type}=req.body
+    let{name}=req.body
     const cRow=await db.get('SELECT COUNT(*)::int AS c FROM evidences WHERE period_id=$1 AND trait_type=$2',[period_id,trait_type])
     const count=cRow.c
     const period=await db.get('SELECT class_id FROM periods WHERE id=$1',[period_id])
     const students=await db.all('SELECT id FROM students WHERE class_id=$1',[period.class_id])
-    const name=`${trait_type} ${count+1}`
+    name=name&&name.trim()?name.trim().slice(0,60):`${trait_type} ${count+1}`
     const r=await db.run('INSERT INTO evidences(period_id,trait_type,name,position)VALUES($1,$2,$3,$4) RETURNING id',[period_id,trait_type,name,count])
     const evId=r.rows[0].id
     for(const st of students)await db.run('INSERT INTO evidence_grades(evidence_id,student_id)VALUES($1,$2) ON CONFLICT(evidence_id,student_id) DO NOTHING',[evId,st.id])
     res.json({id:evId,period_id,trait_type,name,position:count})
+  }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
+})
+
+router.patch('/:id',async(req,res)=>{
+  try{
+    const{id}=req.params
+    let{name}=req.body
+
+    const evidence=await db.get('SELECT * FROM evidences WHERE id=$1',[id])
+    if(!evidence)return res.status(404).json({error:'Evidencia no encontrada'})
+
+    if(!name||!name.trim()){
+      const countRes=await db.get('SELECT COUNT(*)::int AS c FROM evidences WHERE period_id=$1 AND trait_type=$2 AND id<=$3',[evidence.period_id,evidence.trait_type,id])
+      name=`${evidence.trait_type} ${countRes.c}`
+    }else{
+      name=name.trim().slice(0,60)
+    }
+
+    const updated=await db.run('UPDATE evidences SET name=$1 WHERE id=$2 RETURNING *',[name,id])
+    res.json(updated.rows[0])
   }catch(e){console.error(e);res.status(500).json({error:'Error en el servidor'})}
 })
 
