@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { api } from '../api'
 import Sidebar,{MenuButton} from '../components/Sidebar'
 import logoUrl from '../assets/logo.js'
+import NipInput from '../components/NipInput'
 
 function Section({ title, description, children }) {
   return (
@@ -114,33 +115,15 @@ const { user, updateUser } = useAuth()
             <form onSubmit={handleNip}>
               <div className="form-group">
                 <label className="form-label">NIP actual</label>
-                <input
-                  className="form-input"
-                  type="password"
-                  value={currentNip}
-                  onChange={e => setCurrentNip(e.target.value)}
-                  placeholder="••••"
-                />
+                <NipInput value={currentNip} onChange={e => setCurrentNip(e.target.value)} placeholder="••••" />
               </div>
               <div className="form-group">
                 <label className="form-label">Nuevo NIP</label>
-                <input
-                  className="form-input"
-                  type="password"
-                  value={newNip}
-                  onChange={e => setNewNip(e.target.value)}
-                  placeholder="Mínimo 4 dígitos"
-                />
+                <NipInput value={newNip} onChange={e => setNewNip(e.target.value)} placeholder="Mínimo 4 dígitos" />
               </div>
               <div className="form-group">
                 <label className="form-label">Confirmar nuevo NIP</label>
-                <input
-                  className="form-input"
-                  type="password"
-                  value={confirmNip}
-                  onChange={e => setConfirmNip(e.target.value)}
-                  placeholder="Repite el nuevo NIP"
-                />
+                <NipInput value={confirmNip} onChange={e => setConfirmNip(e.target.value)} placeholder="Repite el nuevo NIP" />
               </div>
               <button className="btn btn-primary" disabled={savingNip}>
                 {savingNip ? 'Guardando...' : 'Actualizar NIP'}

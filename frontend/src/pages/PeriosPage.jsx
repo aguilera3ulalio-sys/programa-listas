@@ -20,22 +20,22 @@ const{id}=useParams();const navigate=useNavigate()
   const tot=periods.reduce((s,p)=>s+(parseFloat(p.weight)||0),0);const valid=Math.abs(tot-100)<0.5
   return(<div className="app-shell"><Sidebar open={menuOpen} onClose={()=>setMenuOpen(false)}/><div className="main-content">
     <div className="topbar"><div className="topbar-left"><MenuButton onClick={()=>setMenuOpen(true)}/><img src={logoUrl} alt="UAQ" className="topbar-logo"/><div className="topbar-breadcrumb"><button className="back-link" onClick={()=>navigate(`/clase/${id}`)}>← {clsName}</button><span className="page-title">Periodos</span></div></div></div>
-    <div className="content" style={{maxWidth:720}}>
+    <div className="content" style={{maxWidth:1040}}>
       <p style={{fontSize:13,color:'#888',marginBottom:20,lineHeight:1.6}}>Define fechas, modelo y ponderación de cada parcial. La suma debe ser <strong>100%</strong>.</p>
       {msg&&<div className="alert alert-success">{msg}</div>}
       {error&&<div className="alert alert-error">{error}</div>}
       {loading?<div className="loading"><div className="spinner"/>Cargando...</div>:(<>
         <div className="card" style={{marginBottom:16}}><div style={{overflowX:'auto'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13,minWidth:900}}>
             <thead><tr style={{background:'#f5f5f8'}}>
-              {['Parcial','Fecha inicio','Fecha fin','Modelo de evaluación','Peso %',''].map((h,i)=><th key={i} style={{padding:'10px 14px',textAlign:i===4?'center':'left',fontSize:10,fontWeight:600,color:'#888',textTransform:'uppercase',letterSpacing:'.05em',borderBottom:'1px solid #e0e0e8'}}>{h}</th>)}
+              {[['Parcial',200],['Fecha inicio',170],['Fecha fin',170],['Modelo de evaluación',220],['Peso %',120],['',60]].map(([h,w],i)=><th key={i} style={{padding:'10px 14px',textAlign:i===4?'center':'left',fontSize:10,fontWeight:600,color:'#888',textTransform:'uppercase',letterSpacing:'.05em',borderBottom:'1px solid #e0e0e8',minWidth:w}}>{h}</th>)}
             </tr></thead>
             <tbody>{periods.map((p,i)=>(<tr key={i} style={{borderBottom:i<periods.length-1?'1px solid #f0f0f4':'none'}}>
               <td style={{padding:'10px 14px'}}><input className="form-input" value={p.name} onChange={e=>update(i,'name',e.target.value)} style={{fontWeight:500}}/></td>
               <td style={{padding:'10px 14px'}}><input type="date" className="form-input" value={p.start_date||''} onChange={e=>update(i,'start_date',e.target.value)}/></td>
               <td style={{padding:'10px 14px'}}><input type="date" className="form-input" value={p.end_date||''} onChange={e=>update(i,'end_date',e.target.value)}/></td>
               <td style={{padding:'10px 14px'}}><select className="form-select" value={p.model_id||''} onChange={e=>update(i,'model_id',e.target.value?parseInt(e.target.value):null)}><option value="">Sin modelo</option>{models.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></td>
-              <td style={{padding:'10px 14px',textAlign:'center'}}><div style={{display:'flex',alignItems:'center',gap:4,justifyContent:'center'}}><input type="number" min="0" max="100" step="0.01" className="form-input" value={p.weight} onChange={e=>update(i,'weight',e.target.value)} style={{width:70,textAlign:'right'}}/><span style={{fontSize:12,color:'#888'}}>%</span></div></td>
+              <td style={{padding:'10px 14px',textAlign:'center'}}><div style={{display:'flex',alignItems:'center',gap:4,justifyContent:'center'}}><input type="number" min="0" max="100" step="0.01" className="form-input" value={p.weight} onChange={e=>update(i,'weight',e.target.value)} style={{width:86,textAlign:'right'}}/><span style={{fontSize:12,color:'#888'}}>%</span></div></td>
               <td style={{padding:'10px 14px',textAlign:'center'}}><button className="btn-icon danger" onClick={()=>removePeriod(i)} disabled={periods.length<=1}><TrashIcon/></button></td>
             </tr>))}</tbody>
           </table>

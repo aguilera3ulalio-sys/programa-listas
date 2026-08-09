@@ -3,18 +3,30 @@ import{useNavigate}from'react-router-dom'
 import{useAuth}from'../context/AuthContext'
 import{api}from'../api'
 import logoUrl from'../assets/logo.js'
+import NipInput from'../components/NipInput'
 export default function LoginPage(){
   const[mode,setMode]=useState('login') // 'login' | 'register' | 'recover'
   const[emp,setEmp]=useState('');const[nip,setNip]=useState('');const[remember,setRemember]=useState(false)
   const[error,setError]=useState('');const[info,setInfo]=useState('');const[loading,setLoading]=useState(false)
   const[regName,setRegName]=useState('')
   const[recCode,setRecCode]=useState('');const[recNewNip,setRecNewNip]=useState('')
+  const[nipConfirm,setNipConfirm]=useState('');const[recNipConfirm,setRecNipConfirm]=useState('')
   const[showCode,setShowCode]=useState(null) // {user, code} after successful register
   const{login}=useAuth();const navigate=useNavigate()
-  const switchMode=(m)=>{setMode(m);setError('');setInfo('')}
+  const switchMode=(m)=>{setMode(m);setError('');setInfo('');setNipConfirm('');setRecNipConfirm('')}
 
   const submit=async(e)=>{
-    e.preventDefault();setError('');setInfo('');setLoading(true)
+    e.preventDefault();setError('');setInfo('')
+    // NIPs are typed blind, so make the user confirm any NIP they are creating.
+    if(mode==='register'){
+      if(String(nip).length<4)return setError('El NIP debe tener al menos 4 dígitos')
+      if(nip!==nipConfirm)return setError('El NIP y su confirmación no coinciden')
+    }
+    if(mode==='recover'){
+      if(String(recNewNip).length<4)return setError('El nuevo NIP debe tener al menos 4 dígitos')
+      if(recNewNip!==recNipConfirm)return setError('El nuevo NIP y su confirmación no coinciden')
+    }
+    setLoading(true)
     try{
       if(mode==='register'){
         const{user,recovery_code}=await api.register(emp,nip,regName)
@@ -22,7 +34,7 @@ export default function LoginPage(){
       }else if(mode==='recover'){
         await api.recover(emp,recCode,recNewNip)
         setInfo('NIP actualizado. Ya puedes iniciar sesión con tu nuevo NIP.')
-        setMode('login');setNip('');setRecCode('');setRecNewNip('')
+        setMode('login');setNip('');setRecCode('');setRecNewNip('');setRecNipConfirm('')
       }else{
         const{user}=await api.login(emp,nip)
         login(user,remember);navigate('/')
@@ -64,10 +76,14 @@ export default function LoginPage(){
                 {mode==='recover'?(
                   <>
                     <div className="form-group"><label className="form-label">Código de recuperación</label><input className="form-input" placeholder="XXXX-XXXX-XXXX" value={recCode} onChange={e=>setRecCode(e.target.value)} required/></div>
-                    <div className="form-group"><label className="form-label">Nuevo NIP</label><input className="form-input" type="password" placeholder="Mínimo 4 dígitos" value={recNewNip} onChange={e=>setRecNewNip(e.target.value)} required/></div>
+                    <div className="form-group"><label className="form-label">Nuevo NIP</label><NipInput placeholder="Mínimo 4 dígitos" value={recNewNip} onChange={e=>setRecNewNip(e.target.value)} required/></div>
+                    <div className="form-group"><label className="form-label">Confirmar nuevo NIP</label><NipInput placeholder="Repite el nuevo NIP" value={recNipConfirm} onChange={e=>setRecNipConfirm(e.target.value)} required/></div>
                   </>
                 ):(
-                  <div className="form-group"><label className="form-label">NIP</label><input className="form-input" type="password" placeholder="••••" value={nip} onChange={e=>setNip(e.target.value)} required/></div>
+                  <>
+                    <div className="form-group"><label className="form-label">NIP</label><NipInput placeholder={mode==='register'?'Mínimo 4 dígitos':'••••'} value={nip} onChange={e=>setNip(e.target.value)} required/></div>
+                    {mode==='register'&&<div className="form-group"><label className="form-label">Confirmar NIP</label><NipInput placeholder="Repite el NIP" value={nipConfirm} onChange={e=>setNipConfirm(e.target.value)} required/></div>}
+                  </>
                 )}
 
                 {mode==='login'&&<div style={{display:'flex',alignItems:'center',gap:8,margin:'10px 0 8px'}}><input type="checkbox" id="rem" checked={remember} onChange={e=>setRemember(e.target.checked)} style={{cursor:'pointer'}}/><label htmlFor="rem" style={{fontSize:13,color:'#888',cursor:'pointer'}}>Recuérdame</label></div>}

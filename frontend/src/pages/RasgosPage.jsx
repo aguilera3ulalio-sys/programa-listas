@@ -21,7 +21,7 @@ function ModelCard({model,onSave,onDelete,periodsUsing}){
       <input className="form-input" value={name} onChange={e=>setName(e.target.value)} style={{fontWeight:600,fontSize:14,maxWidth:280}}/>
       {periodsUsing.length>0&&<span style={{fontSize:11,color:'#888',background:'#f0f0f5',padding:'3px 8px',borderRadius:6}}>Usado en: {periodsUsing.join(', ')}</span>}
     </div>
-    <div style={{display:'grid',gridTemplateColumns:'1fr 100px 40px',gap:'6px 12px',alignItems:'center',marginBottom:16}}>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 130px 90px',gap:'6px 12px',alignItems:'center',marginBottom:16}}>
       <div style={{fontSize:10,fontWeight:600,color:'#888',textTransform:'uppercase',letterSpacing:'.05em'}}>Rasgo</div>
       <div style={{fontSize:10,fontWeight:600,color:'#888',textTransform:'uppercase',letterSpacing:'.05em',textAlign:'center'}}>Ponderación %</div>
       <div/>
@@ -53,7 +53,7 @@ const{id}=useParams();const navigate=useNavigate()
   const getUsing=mid=>periods.filter(p=>p.model_id===mid).map(p=>p.name)
   return(<div className="app-shell"><Sidebar open={menuOpen} onClose={()=>setMenuOpen(false)}/><div className="main-content">
     <div className="topbar"><div className="topbar-left"><MenuButton onClick={()=>setMenuOpen(true)}/><img src={logoUrl} alt="UAQ" className="topbar-logo"/><div className="topbar-breadcrumb"><button className="back-link" onClick={()=>navigate(`/clase/${id}`)}>← {clsName}</button><span className="page-title">Rasgos</span></div></div></div>
-    <div className="content" style={{maxWidth:620}}>
+    <div className="content" style={{maxWidth:860}}>
       <p style={{fontSize:13,color:'#888',marginBottom:20,lineHeight:1.6}}>Define los modelos de evaluación. Cada modelo establece qué % pesa cada evidencia. La suma debe ser <strong>100%</strong>.</p>
       {msg&&<div className="alert alert-success">{msg}</div>}
       {loading?<div className="loading"><div className="spinner"/>Cargando...</div>:(<>{models.map(m=><ModelCard key={m.id} model={m} onSave={handleSave} onDelete={handleDelete} periodsUsing={getUsing(m.id)}/>)}<button className="btn btn-primary" onClick={handleAdd} style={{marginTop:8}}><PlusIcon/> Agregar modelo</button></>)}
