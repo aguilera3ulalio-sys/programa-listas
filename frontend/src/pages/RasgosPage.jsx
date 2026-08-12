@@ -3,6 +3,7 @@ import{useParams,useNavigate}from'react-router-dom'
 import{api}from'../api'
 import Sidebar,{MenuButton} from '../components/Sidebar'
 import logoUrl from'../assets/logo.js'
+import ConfirmModal from'../components/ConfirmModal'
 const TRAIT_KEYS=['actividades','tareas','proyecto','examen','practicas','asistencia','trabajos']
 const TRAIT_LABELS={actividades:'Actividades',tareas:'Tareas',proyecto:'Proyecto',examen:'Examen',practicas:'Prácticas',asistencia:'Asistencia',trabajos:'Trabajos'}
 const PlusIcon=()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -40,6 +41,17 @@ function ModelCard({model,onSave,onDelete,periodsUsing}){
       <button className="btn btn-danger btn-sm" onClick={()=>onDelete(model.id)} disabled={periodsUsing.length>0} title={periodsUsing.length>0?'En uso':''}><TrashIcon/> Eliminar</button>
       <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}><SaveIcon/>{saving?'Guardando...':'Guardar'}</button>
     </div>
+    {modelToDelete&&(
+      <ConfirmModal
+        title="Eliminar modelo de evaluación"
+        message={`Se eliminara el modelo "${modelToDelete.name}".`}
+        detail="Los parciales que usen este modelo quedaran sin modelo asignado. Las calificaciones ya capturadas no se borran."
+        confirmLabel="Eliminar modelo"
+        loading={delLoading}
+        onConfirm={confirmDeleteModel}
+        onClose={()=>setModelToDelete(null)}
+      />
+    )}
   </div></div>)
 }
 export default function RasgosPage(){
@@ -48,7 +60,14 @@ const{id}=useParams();const navigate=useNavigate()
   const[models,setModels]=useState([]);const[periods,setPeriods]=useState([]);const[loading,setLoading]=useState(true);const[clsName,setClsName]=useState('');const[msg,setMsg]=useState('')
   useEffect(()=>{Promise.all([api.getModels(id),api.getPeriods(id),api.getClass(id)]).then(([m,p,c])=>{setModels(m);setPeriods(p);setClsName(c.name)}).catch(console.error).finally(()=>setLoading(false))},[id])
   const handleSave=async(mid,data)=>{const u=await api.updateModel(mid,data);setModels(p=>p.map(m=>m.id===mid?u:m));setMsg('Guardado');setTimeout(()=>setMsg(''),2500)}
-  const handleDelete=async mid=>{if(!confirm('¿Eliminar modelo?'))return;await api.deleteModel(mid);setModels(p=>p.filter(m=>m.id!==mid))}
+  const[modelToDelete,setModelToDelete]=useState(null);const[delLoading,setDelLoading]=useState(false)
+  const handleDelete=mid=>setModelToDelete(models.find(m=>m.id===mid)||null)
+  const confirmDeleteModel=async()=>{
+    if(!modelToDelete)return
+    setDelLoading(true)
+    try{await api.deleteModel(modelToDelete.id);setModels(p=>p.filter(m=>m.id!==modelToDelete.id));setModelToDelete(null)}
+    catch(err){console.error(err)}finally{setDelLoading(false)}
+  }
   const handleAdd=async()=>{const m=await api.addModel(id,`Modelo ${models.length+1}`);setModels(p=>[...p,m])}
   const getUsing=mid=>periods.filter(p=>p.model_id===mid).map(p=>p.name)
   return(<div className="app-shell"><Sidebar open={menuOpen} onClose={()=>setMenuOpen(false)}/><div className="main-content">

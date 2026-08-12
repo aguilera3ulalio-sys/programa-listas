@@ -3,6 +3,7 @@ import{useParams,useNavigate,useLocation}from'react-router-dom'
 import{useAuth}from'../context/AuthContext'
 import{api}from'../api'
 import Sidebar,{MenuButton} from '../components/Sidebar'
+import ConfirmModal from '../components/ConfirmModal'
 import{UsersIcon,CloseIcon,LinkIcon,ExternalIcon}from'../components/Icons'
 import logoUrl from'../assets/logo.js'
 const TRAITS={actividades:'Actividades',tareas:'Tareas',proyecto:'Proyecto',examen:'Examen',practicas:'Prácticas',asistencia:'Asistencia',trabajos:'Trabajos'}
@@ -11,6 +12,10 @@ const SaveIcon=()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" s
 const TrashIcon=()=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
 const EditIcon=()=><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 const dn=n=>n.split(' ').slice(0,2).join(' ')
+// Partial and evidence averages keep decimals; only the final grade is rounded.
+const fmt=v=>v==null?'—':String(Math.round(v*100)/100)
+// Enter moves down the same column, like a spreadsheet.
+const focusNext=(col,row)=>{const el=document.querySelector(`[data-cell="${col}-${row+1}"]`);if(el){el.focus();if(el.select)el.select()}}
 const sortEs=list=>[...list].sort((a,b)=>a.full_name.localeCompare(b.full_name,'es',{sensitivity:'base',numeric:true}))
 function AddStudentModal({classId,onClose,onAdded}){const[name,setName]=useState('');const[loading,setLoading]=useState(false);const[error,setError]=useState('');const submit=async e=>{e.preventDefault();if(!name.trim())return;setLoading(true);try{const s=await api.addStudent(classId,name.trim());onAdded(s);setName('')}catch(err){setError(err.message)}finally{setLoading(false)}};return(<div className="modal-overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}><h2 className="modal-title">Añadiendo alumno</h2><p style={{fontSize:12,color:'#888',marginBottom:14}}>Solo se muestran las dos primeras palabras.</p>{error&&<div className="alert alert-error">{error}</div>}<form onSubmit={submit}><div className="form-group"><label className="form-label">Nombre del alumno</label><input className="form-input" placeholder="Ej. Favio Jardínez Montiel" value={name} onChange={e=>setName(e.target.value)} autoFocus/></div><div className="modal-actions"><button type="button" className="btn" onClick={onClose}>Cancelar</button><button type="submit" className="btn btn-primary" disabled={loading}>{loading?'Agregando...':'Aceptar'}</button></div></form></div></div>)}
 function EditStudentsModal({students,onClose,onUpdated,onDeleted}){
@@ -252,17 +257,23 @@ function AddEvidenceModal({period,models,onClose,onAdded}){
     </>)}
   </div></div>)
 }
-function GeneralTab({students,periods,allEvidences}){if(students.length===0)return<div className="empty-state"><div className="empty-icon"><UsersIcon/></div><h3>No hay alumnos</h3></div>;const calcP=(sid,pid)=>{const evs=allEvidences[pid]||[];if(!evs.length)return null;let s=0,c=0;evs.forEach(ev=>{const g=(ev.grades||{})[sid];if(g!=null){s+=g;c++}});return c?Math.round(s/c):null};const calcF=sid=>{let ws=0,tw=0;periods.forEach(p=>{const g=calcP(sid,p.id);if(g!=null){ws+=g*p.weight;tw+=p.weight}});return tw?Math.round(ws/tw):null};return(<div className="table-wrap"><table className="data-table" style={{minWidth:700}}><thead><tr><th rowSpan={2} style={{minWidth:130}}>Alumno</th>{periods.map(p=>{const evs=allEvidences[p.id]||[];return<th key={p.id} colSpan={evs.length+1} className="th-period">{p.name}</th>})}<th rowSpan={2} className="th-dark">Final</th></tr><tr>{periods.map(p=>{const evs=allEvidences[p.id]||[];return[...evs.map(ev=><th key={ev.id} className="num">{ev.name}</th>),<th key={`c${p.id}`} className="td-clf" style={{textAlign:'center',fontSize:10}}>Clf</th>]})}</tr></thead><tbody>{students.map(s=>{const fin=calcF(s.id);return(<tr key={s.id}><td>{dn(s.full_name)}</td>{periods.map(p=>{const evs=allEvidences[p.id]||[];const clf=calcP(s.id,p.id);return[...evs.map(ev=>{const g=(ev.grades||{})[s.id];return<td key={ev.id} className="num">{g??'—'}</td>}),<td key={`c${p.id}`} className="clf td-clf">{clf??'—'}</td>]})}<td className="td-final">{fin??'—'}</td></tr>)})}</tbody></table></div>)}
+function GeneralTab({students,periods,allEvidences}){if(students.length===0)return<div className="empty-state"><div className="empty-icon"><UsersIcon/></div><h3>No hay alumnos</h3></div>;const calcP=(sid,pid)=>{const evs=allEvidences[pid]||[];if(!evs.length)return null;let s=0,c=0;evs.forEach(ev=>{const g=(ev.grades||{})[sid];if(g!=null){s+=g;c++}});return c?s/c:null};const calcF=sid=>{let ws=0,tw=0;periods.forEach(p=>{const g=calcP(sid,p.id);if(g!=null){ws+=g*p.weight;tw+=p.weight}});return tw?Math.round(ws/tw):null};return(<div className="table-wrap"><table className="data-table" style={{minWidth:700}}><thead><tr><th rowSpan={2} style={{minWidth:130}}>Alumno</th>{periods.map(p=>{const evs=allEvidences[p.id]||[];return<th key={p.id} colSpan={evs.length+1} className="th-period">{p.name}</th>})}<th rowSpan={2} className="th-dark">Final</th></tr><tr>{periods.map(p=>{const evs=allEvidences[p.id]||[];return[...evs.map(ev=><th key={ev.id} className="num">{ev.name}</th>),<th key={`c${p.id}`} className="td-clf" style={{textAlign:'center',fontSize:10}}>Clf</th>]})}</tr></thead><tbody>{students.map(s=>{const fin=calcF(s.id);return(<tr key={s.id}><td>{dn(s.full_name)}</td>{periods.map(p=>{const evs=allEvidences[p.id]||[];const clf=calcP(s.id,p.id);return[...evs.map(ev=>{const g=(ev.grades||{})[s.id];return<td key={ev.id} className="num">{g??'—'}</td>}),<td key={`c${p.id}`} className="clf td-clf">{fmt(clf)}</td>]})}<td className="td-final">{fin??'—'}</td></tr>)})}</tbody></table></div>)}
 function AttendanceTab({classId,students,periods}){
   const[activePeriod,setActivePeriod]=useState(0)
   const[days,setDays]=useState([]);const[records,setRecords]=useState({})
   const[loading,setLoading]=useState(false);const[saving,setSaving]=useState(false);const[dirty,setDirty]=useState(false)
-  const[showAdd,setShowAdd]=useState(false);const[newDay,setNewDay]=useState({day:'',month:''})
-  const[insertAfter,setInsertAfter]=useState('')      // '' = al final
-  const[delMode,setDelMode]=useState(false)           // click a column header to remove it
+  const[showAdd,setShowAdd]=useState(false)
+  const[adding,setAdding]=useState(false)          // blocks double submits on slow connections
+  const[newDay,setNewDay]=useState(()=>{const t=new Date();return{day:String(t.getDate()),month:String(t.getMonth()+1)}})
+  const[delMode,setDelMode]=useState(false)
+  const[dayToDelete,setDayToDelete]=useState(null)
+  const[deleting,setDeleting]=useState(false)
   const period=periods[activePeriod]
 
   useEffect(()=>{if(!period)return;setLoading(true);api.getAttendance(classId,period.id).then(d=>{setDays(d.days||[]);setRecords(d.records||{})}).catch(console.error).finally(()=>setLoading(false))},[classId,period?.id])
+
+  // Reset the form to today's date whenever it opens.
+  const openAdd=()=>{const t=new Date();setNewDay({day:String(t.getDate()),month:String(t.getMonth()+1)});setShowAdd(true);setDelMode(false)}
 
   const toggle=(dayId,sid)=>{if(delMode)return;setRecords(p=>{const k=`${dayId}_${sid}`;return{...p,[k]:p[k]?0:1}});setDirty(true)}
   const get=(dayId,sid)=>records[`${dayId}_${sid}`]||0
@@ -270,25 +281,29 @@ function AttendanceTab({classId,students,periods}){
   const save=async()=>{setSaving(true);try{await api.saveAttendance({period_id:period.id,records});setDirty(false)}catch(err){console.error(err)}finally{setSaving(false)}}
 
   const addDay=async()=>{
-    if(!newDay.day||!newDay.month)return
+    if(adding)return                                // guard against repeated clicks
+    const d=parseInt(newDay.day),m=parseInt(newDay.month)
+    if(!d||d<1||d>31||!m||m<1||m>12)return
+    setAdding(true)
     try{
-      const payload={period_id:period.id,new_day:{...newDay,insert_after:insertAfter?parseInt(insertAfter):null},records}
-      const u=await api.saveAttendance(payload)
+      const u=await api.saveAttendance({period_id:period.id,new_day:{day:String(d),month:String(m)},records})
       setDays(u.days||days);setRecords(u.records||records)
-      setShowAdd(false);setNewDay({day:'',month:''});setInsertAfter('')
-    }catch(err){console.error(err)}
+      setShowAdd(false)
+    }catch(err){console.error(err)}finally{setAdding(false)}
   }
 
-  const removeDay=async dayId=>{
-    const d=days.find(x=>x.id===dayId)
-    if(!confirm(`¿Eliminar el día ${d?d.date_label:''}? Se perderan sus asistencias.`))return
+  const confirmDelete=async()=>{
+    if(!dayToDelete)return
+    setDeleting(true)
     try{
-      await api.deleteAttendanceDay(dayId)
-      setDays(p=>p.filter(x=>x.id!==dayId))
-      setRecords(p=>{const n={...p};Object.keys(n).forEach(k=>{if(k.startsWith(`${dayId}_`))delete n[k]});return n})
-      setDelMode(false)
-    }catch(err){console.error(err)}
+      await api.deleteAttendanceDay(dayToDelete.id)
+      setDays(p=>p.filter(x=>x.id!==dayToDelete.id))
+      setRecords(p=>{const n={...p};Object.keys(n).forEach(k=>{if(k.startsWith(`${dayToDelete.id}_`))delete n[k]});return n})
+      setDayToDelete(null);setDelMode(false)
+    }catch(err){console.error(err)}finally{setDeleting(false)}
   }
+
+  const marked=d=>students.filter(s=>get(d.id,s.id)===1).length
 
   if(!period)return<div className="loading">No hay periodos</div>
   return(<>
@@ -303,10 +318,10 @@ function AttendanceTab({classId,students,periods}){
             <th style={{minWidth:130}}>Alumno</th>
             {days.map(d=>(
               <th key={d.id} className="num"
-                  onClick={()=>delMode&&removeDay(d.id)}
+                  onClick={()=>delMode&&setDayToDelete(d)}
                   title={delMode?'Eliminar este día':''}
                   style={delMode?{cursor:'pointer',background:'#fef2f2',color:'#991b1b',outline:'1px solid #fca5a5'}:{}}>
-                {d.day}<br/><small style={{fontWeight:400,textTransform:'none'}}>{d.month}</small>
+                {d.date_label}
               </th>
             ))}
             {days.length===0&&<th className="num">Sin días</th>}
@@ -327,26 +342,35 @@ function AttendanceTab({classId,students,periods}){
       )}
       {showAdd&&(
         <div style={{display:'flex',gap:10,alignItems:'flex-end',flexWrap:'wrap',marginTop:16,background:'#f5f5f8',padding:14,borderRadius:10}}>
-          <div><label className="form-label">Día</label><input className="form-input" style={{width:70}} placeholder="18" value={newDay.day} onChange={e=>setNewDay(p=>({...p,day:e.target.value}))}/></div>
-          <div><label className="form-label">Mes</label><input className="form-input" style={{width:90}} placeholder="Nov" value={newDay.month} onChange={e=>setNewDay(p=>({...p,month:e.target.value}))}/></div>
-          <div><label className="form-label">Posición</label>
-            <select className="form-select" style={{minWidth:170}} value={insertAfter} onChange={e=>setInsertAfter(e.target.value)}>
-              <option value="">Al final</option>
-              {days.map(d=><option key={d.id} value={d.id}>Después de {d.date_label}</option>)}
-            </select>
-          </div>
-          <button className="btn btn-primary" onClick={addDay}>Agregar</button>
-          <button className="btn" onClick={()=>{setShowAdd(false);setInsertAfter('')}}>Cancelar</button>
+          <div><label className="form-label">Día</label>
+            <input type="number" min="1" max="31" className="form-input" style={{width:80}} value={newDay.day}
+                   onChange={e=>setNewDay(p=>({...p,day:e.target.value}))}/></div>
+          <div><label className="form-label">Mes</label>
+            <input type="number" min="1" max="12" className="form-input" style={{width:80}} value={newDay.month}
+                   onChange={e=>setNewDay(p=>({...p,month:e.target.value}))}/></div>
+          <button className="btn btn-primary" onClick={addDay} disabled={adding}>{adding?'Agregando...':'Agregar'}</button>
+          <button className="btn" onClick={()=>setShowAdd(false)} disabled={adding}>Cancelar</button>
         </div>
       )}
     </div>
     <div className="bottom-bar">
-      <button className="btn btn-primary" onClick={()=>{setShowAdd(true);setDelMode(false)}}><PlusIcon/> Agregar día</button>
+      <button className="btn btn-primary" onClick={openAdd} disabled={showAdd}><PlusIcon/> Agregar día</button>
       <button className={`btn ${delMode?'btn-danger':''}`} disabled={days.length===0} onClick={()=>{setDelMode(v=>!v);setShowAdd(false)}}>
         <TrashIcon/> {delMode?'Cancelar':'Eliminar día'}
       </button>
       <button className="btn ml-auto" onClick={save} disabled={saving||!dirty}><SaveIcon/>{saving?'Guardando...':'Guardar'}</button>
     </div>
+    {dayToDelete&&(
+      <ConfirmModal
+        title="Eliminar día de asistencia"
+        message={`Se eliminara el dia ${dayToDelete.date_label} de ${period.name}.`}
+        detail={`Se perderan los ${marked(dayToDelete)} registro(s) de asistencia de ese dia. Esta accion no se puede deshacer.`}
+        confirmLabel="Eliminar día"
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onClose={()=>setDayToDelete(null)}
+      />
+    )}
   </>)
 }
 function EvidencesTab({classId,students,periods,models,onEvidencesChange,initialPeriodId}){
@@ -365,8 +389,10 @@ function EvidencesTab({classId,students,periods,models,onEvidencesChange,initial
   const updateGrade=(evId,sid,val)=>{setGrades(p=>({...p,[`${evId}_${sid}`]:val===''?null:parseFloat(val)}));setDirty(true)}
   const getGrade=(evId,sid)=>{const v=grades[`${evId}_${sid}`];return v===null||v===undefined?'':v}
   const save=async()=>{setSaving(true);try{await Promise.all(evidences.map(ev=>api.saveGrades(ev.id,students.map(s=>({student_id:s.id,grade:grades[`${ev.id}_${s.id}`]??null})))));setDirty(false)}catch(err){console.error(err)}finally{setSaving(false)}}
-  const delEv=async evId=>{if(!confirm('¿Eliminar esta evidencia?'))return;await api.deleteEvidence(evId);load()}
-  const calcClf=sid=>{if(!evidences.length)return null;let s=0,c=0;evidences.forEach(ev=>{const g=grades[`${ev.id}_${sid}`];if(g!=null){s+=g;c++}});return c?Math.round(s/c):null}
+  const[evToDelete,setEvToDelete]=useState(null);const[delEvLoading,setDelEvLoading]=useState(false);
+  const delEv=evId=>setEvToDelete(evidences.find(e=>e.id===evId)||null);
+  const confirmDelEv=async()=>{if(!evToDelete)return;setDelEvLoading(true);try{await api.deleteEvidence(evToDelete.id);setEvToDelete(null);load()}catch(err){console.error(err)}finally{setDelEvLoading(false)}}
+  const calcClf=sid=>{if(!evidences.length)return null;let s=0,c=0;evidences.forEach(ev=>{const g=grades[`${ev.id}_${sid}`];if(g!=null){s+=g;c++}});return c?s/c:null}
   const startEdit=ev=>{setEditingEvId(ev.id);setEditEvName(ev.name)}
   const renameEv=async(evId,newName)=>{
     try{
@@ -381,7 +407,7 @@ function EvidencesTab({classId,students,periods,models,onEvidencesChange,initial
     commitEdit(evId)
   }
   if(!period)return<div className="loading">No hay periodos</div>
-  return(<><div style={{display:'flex',gap:6,padding:'10px 20px',background:'#fff',borderBottom:'1px solid #e0e0e8'}}>{periods.map((p,i)=><button key={p.id} className={`pill ${activePeriod===i?'active':''}`} onClick={()=>setActivePeriod(i)}>{p.name}</button>)}</div><div className="content">{loading?<div className="loading"><div className="spinner"/>Cargando...</div>:(<div className="table-wrap"><table className="data-table"><thead><tr><th style={{minWidth:130}}>Alumno</th>{evidences.map(ev=><th key={ev.id} className="num"><div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>{editingEvId===ev.id?<input autoFocus value={editEvName} onChange={e=>setEditEvName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){suppressBlurRef.current=true;commitEdit(ev.id)}else if(e.key==='Escape')cancelEdit()}} onBlur={()=>handleBlur(ev.id)} style={{width:70,fontSize:11,padding:'2px 4px',border:'1px solid #e0e0e8',borderRadius:4,textAlign:'center'}}/>:<span style={{cursor:'pointer'}} onClick={()=>startEdit(ev)} title="Clic para renombrar">{ev.name}</span>}<button className="btn-icon" style={{width:18,height:18,fontSize:10}} onClick={()=>delEv(ev.id)}><CloseIcon size={10}/></button></div></th>)}{evidences.length===0&&<th className="num">Sin evidencias</th>}<th className="td-clf" style={{textAlign:'center',fontSize:10}}>Clf. Parcial</th></tr></thead><tbody>{students.map(s=>{const clf=calcClf(s.id);return(<tr key={s.id}><td>{dn(s.full_name)}</td>{evidences.map(ev=><td key={ev.id} className="num"><input type="number" min="0" max="100" value={getGrade(ev.id,s.id)} onChange={e=>updateGrade(ev.id,s.id,e.target.value)} style={{width:52,padding:'3px 6px',border:'1px solid #e0e0e8',borderRadius:5,textAlign:'center',fontSize:12,background:'transparent'}}/></td>)}{evidences.length===0&&<td className="num">—</td>}<td className="clf td-clf">{clf??'—'}</td></tr>)})}</tbody></table></div>)}</div><div className="bottom-bar"><button className="btn btn-primary" onClick={()=>setShowAdd(true)}><PlusIcon/> Agregar evidencia</button><button className="btn ml-auto" onClick={save} disabled={saving||!dirty}><SaveIcon/>{saving?'Guardando...':'Guardar'}</button></div>{showAdd&&period&&<AddEvidenceModal period={period} models={models} onClose={()=>setShowAdd(false)} onAdded={()=>{setShowAdd(false);load()}}/>}</>)}
+  return(<><div style={{display:'flex',gap:6,padding:'10px 20px',background:'#fff',borderBottom:'1px solid #e0e0e8'}}>{periods.map((p,i)=><button key={p.id} className={`pill ${activePeriod===i?'active':''}`} onClick={()=>setActivePeriod(i)}>{p.name}</button>)}</div><div className="content">{loading?<div className="loading"><div className="spinner"/>Cargando...</div>:(<div className="table-wrap"><table className="data-table"><thead><tr><th style={{minWidth:130}}>Alumno</th>{evidences.map(ev=><th key={ev.id} className="num"><div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:4}}>{editingEvId===ev.id?<input autoFocus value={editEvName} onChange={e=>setEditEvName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){suppressBlurRef.current=true;commitEdit(ev.id)}else if(e.key==='Escape')cancelEdit()}} onBlur={()=>handleBlur(ev.id)} style={{width:70,fontSize:11,padding:'2px 4px',border:'1px solid #e0e0e8',borderRadius:4,textAlign:'center'}}/>:<span style={{cursor:'pointer'}} onClick={()=>startEdit(ev)} title="Clic para renombrar">{ev.name}</span>}<button className="btn-icon" style={{width:18,height:18,fontSize:10}} onClick={()=>delEv(ev.id)}><CloseIcon size={10}/></button></div></th>)}{evidences.length===0&&<th className="num">Sin evidencias</th>}<th className="td-clf" style={{textAlign:'center',fontSize:10}}>Clf. Parcial</th></tr></thead><tbody>{students.map((s,si)=>{const clf=calcClf(s.id);return(<tr key={s.id}><td>{dn(s.full_name)}</td>{evidences.map(ev=><td key={ev.id} className="num"><input type="number" min="0" max="100" step="any" data-cell={`${ev.id}-${si}`} value={getGrade(ev.id,s.id)} onChange={e=>updateGrade(ev.id,s.id,e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();focusNext(ev.id,si)}}} style={{width:56,padding:'3px 6px',border:'1px solid #e0e0e8',borderRadius:5,textAlign:'center',fontSize:12,background:'transparent'}}/></td>)}{evidences.length===0&&<td className="num">—</td>}<td className="clf td-clf">{fmt(clf)}</td></tr>)})}</tbody></table></div>)}</div><div className="bottom-bar"><button className="btn btn-primary" onClick={()=>setShowAdd(true)}><PlusIcon/> Agregar evidencia</button><button className="btn ml-auto" onClick={save} disabled={saving||!dirty}><SaveIcon/>{saving?'Guardando...':'Guardar'}</button></div>{showAdd&&period&&<AddEvidenceModal period={period} models={models} onClose={()=>setShowAdd(false)} onAdded={()=>{setShowAdd(false);load()}}/>}{evToDelete&&<ConfirmModal title="Eliminar evidencia" message={`Se eliminara "${evToDelete.name}" de ${period.name}.`} detail="Se perderan las calificaciones registradas en esta evidencia. Esta accion no se puede deshacer." confirmLabel="Eliminar evidencia" loading={delEvLoading} onConfirm={confirmDelEv} onClose={()=>setEvToDelete(null)}/>}</>)}
 function PerStudentTab({classId,students,periods,models,allEvidences,onEvidencesChange}){
   const[selected,setSelected]=useState([]);const[viewing,setViewing]=useState(false)
   const[periodIdx,setPeriodIdx]=useState(0)
@@ -411,8 +437,8 @@ function PerStudentTab({classId,students,periods,models,allEvidences,onEvidences
       onEvidencesChange&&onEvidencesChange(period.id,evidences,grades)
     }catch(err){console.error(err)}finally{setSaving(false)}
   }
-  const calcClf=sid=>{if(!evidences.length)return null;let t=0,c=0;evidences.forEach(ev=>{const g=grades[`${ev.id}_${sid}`];if(g!=null){t+=g;c++}});return c?Math.round(t/c):null}
-  const calcP=(sid,pid)=>{const evs=allEvidences[pid]||[];if(!evs.length)return null;let t=0,c=0;evs.forEach(ev=>{const g=(ev.grades||{})[sid];if(g!=null){t+=g;c++}});return c?Math.round(t/c):null}
+  const calcClf=sid=>{if(!evidences.length)return null;let t=0,c=0;evidences.forEach(ev=>{const g=grades[`${ev.id}_${sid}`];if(g!=null){t+=g;c++}});return c?t/c:null}
+  const calcP=(sid,pid)=>{const evs=allEvidences[pid]||[];if(!evs.length)return null;let t=0,c=0;evs.forEach(ev=>{const g=(ev.grades||{})[sid];if(g!=null){t+=g;c++}});return c?t/c:null}
   const calcF=sid=>{let ws=0,tw=0;periods.forEach(p=>{const g=calcP(sid,p.id);if(g!=null){ws+=g*p.weight;tw+=p.weight}});return tw?Math.round(ws/tw):null}
 
   if(viewing&&sel.length>0)return(<>
@@ -427,7 +453,7 @@ function PerStudentTab({classId,students,periods,models,allEvidences,onEvidences
         <thead><tr><th>Alumno</th>{periods.map(p=><th key={p.id} className="th-period">{p.name}</th>)}<th className="th-dark">Final</th></tr></thead>
         <tbody>{sel.map(s=>{const fin=calcF(s.id);return(
           <tr key={s.id}><td>{dn(s.full_name)}</td>
-            {periods.map(p=>{const g=calcP(s.id,p.id);return<td key={p.id} className="clf td-clf">{g??'—'}</td>})}
+            {periods.map(p=>{const g=calcP(s.id,p.id);return<td key={p.id} className="clf td-clf">{fmt(g)}</td>})}
             <td className="td-final">{fin??'—'}</td>
           </tr>)})}
         </tbody>
@@ -442,16 +468,19 @@ function PerStudentTab({classId,students,periods,models,allEvidences,onEvidences
             {evidences.length===0&&<th className="num">Sin evidencias</th>}
             <th className="td-clf" style={{textAlign:'center',fontSize:10}}>Clf. Parcial</th>
           </tr></thead>
-          <tbody>{sel.map(s=>{const clf=calcClf(s.id);return(
+          <tbody>{sel.map((s,si)=>{const clf=calcClf(s.id);return(
             <tr key={s.id}><td>{dn(s.full_name)}</td>
               {evidences.map(ev=>(
                 <td key={ev.id} className="num">
-                  <input type="number" min="0" max="100" value={getGrade(ev.id,s.id)}
+                  <input type="number" min="0" max="100" step="any"
+                    data-cell={`p${ev.id}-${si}`}
+                    value={getGrade(ev.id,s.id)}
                     onChange={e=>updateGrade(ev.id,s.id,e.target.value)}
-                    style={{width:52,padding:'3px 6px',border:'1px solid #e0e0e8',borderRadius:5,textAlign:'center',fontSize:12,background:'transparent'}}/>
+                    onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();focusNext('p'+ev.id,si)}}}
+                    style={{width:56,padding:'3px 6px',border:'1px solid #e0e0e8',borderRadius:5,textAlign:'center',fontSize:12,background:'transparent'}}/>
                 </td>))}
               {evidences.length===0&&<td className="num">—</td>}
-              <td className="clf td-clf">{clf??'—'}</td>
+              <td className="clf td-clf">{fmt(clf)}</td>
             </tr>)})}
           </tbody>
         </table></div>

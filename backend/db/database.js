@@ -32,6 +32,16 @@ async function init() {
       name TEXT NOT NULL,
       theme TEXT DEFAULT 'pink',
       recovery_code TEXT,
+      email TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    -- One-time codes for password reset by email. Codes are stored hashed and expire.
+    CREATE TABLE IF NOT EXISTS nip_resets(
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      code_hash TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS classes(
@@ -124,6 +134,10 @@ async function init() {
       color TEXT DEFAULT '#c0185a'
     );
   `)
+
+  // Older databases predate the email column; CREATE TABLE IF NOT EXISTS won't add it.
+  const ucols=(await all("SELECT column_name FROM information_schema.columns WHERE table_name='users'")).map(r=>r.column_name)
+  if(!ucols.includes('email')) await query('ALTER TABLE users ADD COLUMN email TEXT')
 
   // Seed demo user (hashed NIP) if the users table is empty.
   const existing = await get('SELECT id FROM users WHERE employee_number=$1', ['12345'])

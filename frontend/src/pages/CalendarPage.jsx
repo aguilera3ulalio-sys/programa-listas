@@ -375,10 +375,7 @@ export default function CalendarPage() {
               <div className="page-subtitle">{user.name}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button className={`pill ${view === 'week' ? 'active' : ''}`} onClick={() => setView('week')}>Semana</button>
-            <button className={`pill ${view === 'month' ? 'active' : ''}`} onClick={() => setView('month')}>Mes</button>
-          </div>
+
         </div>
 
         {/* Filters */}
@@ -427,15 +424,32 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* Month navigation */}
-        {view === 'month' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 20px', background: '#fff', borderBottom: '1px solid #e0e0e8' }}>
-            <button className="btn-icon" onClick={() => shiftMonth(-1)}><ChevL /></button>
-            <span style={{ fontSize: 14, fontWeight: 600, minWidth: 150 }}>{MONTHS[cursorYM.m]} {cursorYM.y}</span>
-            <button className="btn-icon" onClick={() => shiftMonth(1)}><ChevR /></button>
-            <button className="btn btn-sm" onClick={goToday}>Hoy</button>
+        {/* View toggle + month navigation, always visible and centred */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, flexWrap: 'wrap', padding: '11px 20px', background: '#fff', borderBottom: '1px solid #e0e0e8' }}>
+          {/* Segmented control */}
+          <div style={{ display: 'inline-flex', background: '#f0f0f5', borderRadius: 10, padding: 3, gap: 3 }}>
+            {[['week', 'Semana'], ['month', 'Mes']].map(([v, label]) => (
+              <button key={v} onClick={() => setView(v)}
+                style={{
+                  padding: '7px 20px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600,
+                  background: view === v ? '#fff' : 'transparent',
+                  color: view === v ? 'var(--accent)' : '#888',
+                  boxShadow: view === v ? '0 1px 3px rgba(0,0,0,.12)' : 'none',
+                  transition: 'all .15s',
+                }}>{label}</button>
+            ))}
           </div>
-        )}
+
+          {view === 'month' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button className="btn-icon" onClick={() => shiftMonth(-1)} title="Mes anterior"><ChevL /></button>
+              <span style={{ fontSize: 14, fontWeight: 600, minWidth: 140, textAlign: 'center' }}>{MONTHS[cursorYM.m]} {cursorYM.y}</span>
+              <button className="btn-icon" onClick={() => shiftMonth(1)} title="Mes siguiente"><ChevR /></button>
+              <button className="btn btn-sm" onClick={goToday}>Hoy</button>
+            </div>
+          )}
+        </div>
 
         <div className="content">
           {loading ? <div className="loading"><div className="spinner" />Cargando...</div> : view === 'week' ? (

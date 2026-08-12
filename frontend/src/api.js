@@ -4,8 +4,11 @@ const BASE=(import.meta.env.VITE_API_URL||'')+'/api'
 async function req(method,path,body){const opts={method,headers:{'Content-Type':'application/json'}};if(body)opts.body=JSON.stringify(body);const res=await fetch(BASE+path,opts);const data=await res.json();if(!res.ok)throw new Error(data.error||'Error en el servidor');return data}
 export const api={
   login:(e,n)=>req('POST','/auth/login',{employee_number:e,nip:n}),
-  register:(e,n,name)=>req('POST','/auth/register',{employee_number:e,nip:n,name}),
+  register:(e,n,name,email)=>req('POST','/auth/register',{employee_number:e,nip:n,name,email}),
   recover:(e,code,newNip)=>req('POST','/auth/recover',{employee_number:e,recovery_code:code,new_nip:newNip}),
+  forgotByEmail:(e)=>req('POST','/auth/forgot',{employee_number:e}),
+  resetWithCode:(e,code,newNip)=>req('POST','/auth/reset',{employee_number:e,code,new_nip:newNip}),
+  mailStatus:()=>req('GET','/auth/mail-status'),
   updateAccount:(d)=>req('PATCH','/auth/update',d),
   getClasses:(uid)=>req('GET',`/classes?user_id=${uid}`),
   getClass:(id)=>req('GET',`/classes/${id}`),

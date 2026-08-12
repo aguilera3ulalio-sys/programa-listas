@@ -33,7 +33,7 @@ router.post('/save',async(req,res)=>{
         const cntRow=await db.get('SELECT COUNT(*)::int AS c FROM attendance_days WHERE period_id=$1',[period_id])
         pos=cntRow.c
       }
-      const r=await db.run('INSERT INTO attendance_days(period_id,day,month,date_label,position)VALUES($1,$2,$3,$4,$5) RETURNING id',[period_id,new_day.day,new_day.month,`${new_day.day} ${new_day.month}`,pos])
+      const r=await db.run('INSERT INTO attendance_days(period_id,day,month,date_label,position)VALUES($1,$2,$3,$4,$5) RETURNING id',[period_id,new_day.day,new_day.month,`${String(new_day.day).padStart(2,'0')}/${String(new_day.month).padStart(2,'0')}`,pos])
       const dayId=r.rows[0].id
       for(const st of sts)await db.run('INSERT INTO attendance_records(day_id,student_id,present)VALUES($1,$2,0) ON CONFLICT(day_id,student_id) DO NOTHING',[dayId,st.id])
     }

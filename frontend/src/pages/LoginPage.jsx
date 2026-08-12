@@ -1,4 +1,4 @@
-import{useState}from'react'
+import{useState,useEffect}from'react'
 import{useNavigate}from'react-router-dom'
 import{useAuth}from'../context/AuthContext'
 import{api}from'../api'
@@ -11,9 +11,14 @@ export default function LoginPage(){
   const[regName,setRegName]=useState('')
   const[recCode,setRecCode]=useState('');const[recNewNip,setRecNewNip]=useState('')
   const[nipConfirm,setNipConfirm]=useState('');const[recNipConfirm,setRecNipConfirm]=useState('')
+  const[regEmail,setRegEmail]=useState('')
+  const[mailOn,setMailOn]=useState(false)
+  const[mailStep,setMailStep]=useState('ask')            // ask -> code
+  const[mailCode,setMailCode]=useState('');const[mailNip,setMailNip]=useState('');const[mailNipConfirm,setMailNipConfirm]=useState('')
   const[showCode,setShowCode]=useState(null) // {user, code} after successful register
   const{login}=useAuth();const navigate=useNavigate()
-  const switchMode=(m)=>{setMode(m);setError('');setInfo('');setNipConfirm('');setRecNipConfirm('')}
+  useEffect(()=>{api.mailStatus().then(r=>setMailOn(!!r.enabled)).catch(()=>setMailOn(false))},[])
+  const switchMode=(m)=>{setMode(m);setError('');setInfo('');setNipConfirm('');setRecNipConfirm('');setMailStep('ask');setMailCode('');setMailNip('');setMailNipConfirm('')}
 
   const submit=async(e)=>{
     e.preventDefault();setError('');setInfo('')
@@ -26,10 +31,24 @@ export default function LoginPage(){
       if(String(recNewNip).length<4)return setError('El nuevo NIP debe tener al menos 4 dígitos')
       if(recNewNip!==recNipConfirm)return setError('El nuevo NIP y su confirmación no coinciden')
     }
+    if(mode==='mail'&&mailStep==='code'){
+      if(String(mailNip).length<4)return setError('El nuevo NIP debe tener al menos 4 dígitos')
+      if(mailNip!==mailNipConfirm)return setError('El nuevo NIP y su confirmación no coinciden')
+    }
     setLoading(true)
     try{
-      if(mode==='register'){
-        const{user,recovery_code}=await api.register(emp,nip,regName)
+      if(mode==='mail'){
+        if(mailStep==='ask'){
+          const r=await api.forgotByEmail(emp)
+          setInfo(r.message||'Si la clave existe y tiene correo registrado, enviamos un codigo.')
+          setMailStep('code')
+        }else{
+          await api.resetWithCode(emp,mailCode,mailNip)
+          setInfo('NIP actualizado. Ya puedes iniciar sesión con tu nuevo NIP.')
+          setMode('login');setNip('');setMailCode('');setMailNip('');setMailNipConfirm('');setMailStep('ask')
+        }
+      }else if(mode==='register'){
+        const{user,recovery_code}=await api.register(emp,nip,regName,regEmail.trim()||undefined)
         setShowCode({user,code:recovery_code}) // hold login until they save the code
       }else if(mode==='recover'){
         await api.recover(emp,recCode,recNewNip)
@@ -66,14 +85,28 @@ export default function LoginPage(){
             </div>
           ):(
             <div>
-              <h1 style={{fontSize:20,fontWeight:700,marginBottom:24,color:'#1a1a26'}}>{mode==='register'?'Crear cuenta':mode==='recover'?'Recuperar NIP':'Iniciar sesión'}</h1>
+              <h1 style={{fontSize:20,fontWeight:700,marginBottom:24,color:'#1a1a26'}}>{mode==='register'?'Crear cuenta':mode==='recover'?'Recuperar con código':mode==='mail'?'Recuperar por correo':'Iniciar sesión'}</h1>
               {error&&<div className="alert alert-error">{error}</div>}
               {info&&<div className="alert alert-success">{info}</div>}
               <form onSubmit={submit}>
-                {mode==='register'&&<div className="form-group"><label className="form-label">Nombre completo</label><input className="form-input" placeholder="Ej. Francisco Paulín" value={regName} onChange={e=>setRegName(e.target.value)} required/></div>}
+                {mode==='register'&&<><div className="form-group"><label className="form-label">Nombre completo</label><input className="form-input" placeholder="Ej. Francisco Paulín" value={regName} onChange={e=>setRegName(e.target.value)} required/></div>
+                <div className="form-group"><label className="form-label">Correo <span style={{fontWeight:400,textTransform:'none'}}>(opcional)</span></label><input className="form-input" type="email" placeholder="tucorreo@uaq.mx" value={regEmail} onChange={e=>setRegEmail(e.target.value)}/><p style={{fontSize:11,color:'#aaa',marginTop:5}}>Sirve para recuperar tu NIP si lo olvidas.</p></div></>}
                 <div className="form-group"><label className="form-label">Clave de trabajador</label><input className="form-input" placeholder="Ej. 12345" value={emp} onChange={e=>setEmp(e.target.value)} required/></div>
 
-                {mode==='recover'?(
+                {mode==='mail'?(
+                  mailStep==='ask'?(
+                    <p style={{fontSize:12,color:'#888',lineHeight:1.6,marginBottom:4}}>
+                      Te enviaremos un codigo de 6 digitos al correo registrado en tu cuenta.
+                    </p>
+                  ):(
+                    <>
+                      <div className="form-group"><label className="form-label">Código recibido</label><input className="form-input" placeholder="000000" inputMode="numeric" maxLength={6} value={mailCode} onChange={e=>setMailCode(e.target.value.replace(/\D/g,''))} required style={{letterSpacing:4,textAlign:'center',fontSize:16}}/></div>
+                      <div className="form-group"><label className="form-label">Nuevo NIP</label><NipInput placeholder="Mínimo 4 dígitos" value={mailNip} onChange={e=>setMailNip(e.target.value)} required/></div>
+                      <div className="form-group"><label className="form-label">Confirmar nuevo NIP</label><NipInput placeholder="Repite el nuevo NIP" value={mailNipConfirm} onChange={e=>setMailNipConfirm(e.target.value)} required/></div>
+                      <button type="button" onClick={()=>{setMailStep('ask');setInfo('')}} style={{background:'none',border:'none',color:'var(--accent)',fontSize:12,fontWeight:600,cursor:'pointer',padding:0,marginBottom:8}}>Reenviar código</button>
+                    </>
+                  )
+                ):mode==='recover'?(
                   <>
                     <div className="form-group"><label className="form-label">Código de recuperación</label><input className="form-input" placeholder="XXXX-XXXX-XXXX" value={recCode} onChange={e=>setRecCode(e.target.value)} required/></div>
                     <div className="form-group"><label className="form-label">Nuevo NIP</label><NipInput placeholder="Mínimo 4 dígitos" value={recNewNip} onChange={e=>setRecNewNip(e.target.value)} required/></div>
@@ -87,14 +120,18 @@ export default function LoginPage(){
                 )}
 
                 {mode==='login'&&<div style={{display:'flex',alignItems:'center',gap:8,margin:'10px 0 8px'}}><input type="checkbox" id="rem" checked={remember} onChange={e=>setRemember(e.target.checked)} style={{cursor:'pointer'}}/><label htmlFor="rem" style={{fontSize:13,color:'#888',cursor:'pointer'}}>Recuérdame</label></div>}
-                <button className="btn btn-primary w-full" style={{padding:10,justifyContent:'center',marginTop:mode==='login'?0:8}} disabled={loading}>{loading?'Cargando...':mode==='register'?'Crear cuenta':mode==='recover'?'Actualizar NIP':'Iniciar sesión'}</button>
+                <button className="btn btn-primary w-full" style={{padding:10,justifyContent:'center',marginTop:mode==='login'?0:8}} disabled={loading}>{loading?'Cargando...':mode==='register'?'Crear cuenta':mode==='recover'?'Actualizar NIP':mode==='mail'?(mailStep==='ask'?'Enviar código':'Actualizar NIP'):'Iniciar sesión'}</button>
               </form>
 
-              {mode==='login'&&<div style={{textAlign:'center',marginTop:12,fontSize:13}}><button onClick={()=>switchMode('recover')} style={{color:'var(--accent)',background:'none',border:'none',fontWeight:600,cursor:'pointer'}}>¿Olvidaste tu NIP?</button></div>}
+              {mode==='login'&&<div style={{textAlign:'center',marginTop:12,fontSize:13,display:'flex',flexDirection:'column',gap:6}}>
+                {mailOn&&<button onClick={()=>switchMode('mail')} style={{color:'var(--accent)',background:'none',border:'none',fontWeight:600,cursor:'pointer'}}>¿Olvidaste tu NIP? Recuperar por correo</button>}
+                <button onClick={()=>switchMode('recover')} style={{color:mailOn?'#888':'var(--accent)',background:'none',border:'none',fontWeight:600,cursor:'pointer',fontSize:mailOn?12:13}}>{mailOn?'Usar código de recuperación':'¿Olvidaste tu NIP?'}</button>
+              </div>}
               <div style={{textAlign:'center',marginTop:12,fontSize:13,color:'#888'}}>
                 {mode==='login'&&<>¿No tienes cuenta? <button onClick={()=>switchMode('register')} style={{color:'var(--accent)',background:'none',border:'none',fontWeight:600,cursor:'pointer'}}>Regístrate</button></>}
                 {mode==='register'&&<>¿Ya tienes cuenta? <button onClick={()=>switchMode('login')} style={{color:'var(--accent)',background:'none',border:'none',fontWeight:600,cursor:'pointer'}}>Inicia sesión</button></>}
                 {mode==='recover'&&<button onClick={()=>switchMode('login')} style={{color:'var(--accent)',background:'none',border:'none',fontWeight:600,cursor:'pointer'}}>Volver a iniciar sesión</button>}
+                {mode==='mail'&&<button onClick={()=>switchMode('login')} style={{color:'var(--accent)',background:'none',border:'none',fontWeight:600,cursor:'pointer'}}>Volver a iniciar sesión</button>}
               </div>
             </div>
           )}

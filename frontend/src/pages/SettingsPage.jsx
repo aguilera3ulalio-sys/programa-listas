@@ -27,6 +27,12 @@ const { user, updateUser } = useAuth()
   const [nameErr, setNameErr] = useState('')
   const [savingName, setSavingName] = useState(false)
 
+  // Email
+  const [email, setEmail] = useState(user.email || '')
+  const [emailMsg, setEmailMsg] = useState('')
+  const [emailErr, setEmailErr] = useState('')
+  const [savingEmail, setSavingEmail] = useState(false)
+
   // NIP
   const [currentNip, setCurrentNip] = useState('')
   const [newNip, setNewNip] = useState('')
@@ -48,6 +54,20 @@ const { user, updateUser } = useAuth()
       setNameMsg('Nombre actualizado'); flash(setNameMsg)
     } catch (err) { setNameErr(err.message) }
     finally { setSavingName(false) }
+  }
+
+  const handleEmail = async (e) => {
+    e.preventDefault()
+    setEmailErr(''); setEmailMsg('')
+    const v = email.trim()
+    if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) return setEmailErr('El correo no es válido')
+    setSavingEmail(true)
+    try {
+      const { user: updated } = await api.updateAccount({ user_id: user.id, email: v })
+      updateUser(updated)
+      setEmailMsg(v ? 'Correo actualizado' : 'Correo eliminado'); flash(setEmailMsg)
+    } catch (err) { setEmailErr(err.message) }
+    finally { setSavingEmail(false) }
   }
 
   const handleNip = async (e) => {
@@ -101,6 +121,33 @@ const { user, updateUser } = useAuth()
               </div>
               <button className="btn btn-primary" disabled={savingName}>
                 {savingName ? 'Guardando...' : 'Guardar nombre'}
+              </button>
+            </form>
+          </Section>
+
+          {/* Email */}
+          <Section
+            title="Correo de recuperación"
+            description="Si olvidas tu NIP, te enviaremos un código a este correo para restablecerlo."
+          >
+            {emailErr && <div className="alert alert-error">{emailErr}</div>}
+            {emailMsg && <div className="alert alert-success">{emailMsg}</div>}
+            <form onSubmit={handleEmail}>
+              <div className="form-group">
+                <label className="form-label">Correo electrónico</label>
+                <input
+                  className="form-input"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="tucorreo@uaq.mx"
+                />
+                <p style={{ fontSize: 11, color: '#aaa', marginTop: 5 }}>
+                  Déjalo vacío para quitar el correo de tu cuenta.
+                </p>
+              </div>
+              <button className="btn btn-primary" disabled={savingEmail}>
+                {savingEmail ? 'Guardando...' : 'Guardar correo'}
               </button>
             </form>
           </Section>
