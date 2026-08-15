@@ -41,17 +41,6 @@ function ModelCard({model,onSave,onDelete,periodsUsing}){
       <button className="btn btn-danger btn-sm" onClick={()=>onDelete(model.id)} disabled={periodsUsing.length>0} title={periodsUsing.length>0?'En uso':''}><TrashIcon/> Eliminar</button>
       <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}><SaveIcon/>{saving?'Guardando...':'Guardar'}</button>
     </div>
-    {modelToDelete&&(
-      <ConfirmModal
-        title="Eliminar modelo de evaluación"
-        message={`Se eliminara el modelo "${modelToDelete.name}".`}
-        detail="Los parciales que usen este modelo quedaran sin modelo asignado. Las calificaciones ya capturadas no se borran."
-        confirmLabel="Eliminar modelo"
-        loading={delLoading}
-        onConfirm={confirmDeleteModel}
-        onClose={()=>setModelToDelete(null)}
-      />
-    )}
   </div></div>)
 }
 export default function RasgosPage(){
@@ -77,5 +66,16 @@ const{id}=useParams();const navigate=useNavigate()
       {msg&&<div className="alert alert-success">{msg}</div>}
       {loading?<div className="loading"><div className="spinner"/>Cargando...</div>:(<>{models.map(m=><ModelCard key={m.id} model={m} onSave={handleSave} onDelete={handleDelete} periodsUsing={getUsing(m.id)}/>)}<button className="btn btn-primary" onClick={handleAdd} style={{marginTop:8}}><PlusIcon/> Agregar modelo</button></>)}
     </div>
+    {modelToDelete&&(
+      <ConfirmModal
+        title="Eliminar modelo de evaluación"
+        message={`Se eliminara el modelo "${modelToDelete.name}".`}
+        detail="Los parciales que usen este modelo quedaran sin modelo asignado. Las calificaciones ya capturadas no se borran."
+        confirmLabel="Eliminar modelo"
+        loading={delLoading}
+        onConfirm={confirmDeleteModel}
+        onClose={()=>setModelToDelete(null)}
+      />
+    )}
   </div></div>)
 }
